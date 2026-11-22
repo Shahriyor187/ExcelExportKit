@@ -31,7 +31,7 @@ The original `ToWord(inputFile, outputFile)` method remains available for compat
 
 ## Conversion behavior
 
-- Only the **first worksheet** is converted.
+- Legacy methods convert the **first worksheet**; overloads accept a worksheet name or zero-based index.
 - The first used row is treated as the header row.
 - Blank headers are named `Column1`, `Column2`, and so on.
 - Duplicate headers are made unique by appending a suffix (for example, `Name_2`).
@@ -56,3 +56,81 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE.txt).
 - It converts the first worksheet only; it does not merge multiple worksheets.
 - Values are exported as formatted text, not as strongly typed JSON numbers or dates.
 - PDF and Word output focus on worksheet data; complex Excel styling, charts, images, and formulas are not reproduced as spreadsheet features.
+
+## New in 1.2.0
+
+### Select a worksheet
+
+```csharp
+await ExcelConverter.ToJsonAsync("report.xlsx", "sales.json",
+    new ExcelConversionOptions { WorksheetName = "Sales", PreserveJsonTypes = true });
+
+await ExcelConverter.ToCSVAsync("report.xlsx", "sheet2.csv",
+    new ExcelConversionOptions { WorksheetIndex = 1, CsvDelimiter = ';' });
+```
+
+For typed JSON, numeric cells become JSON numbers, Boolean cells become booleans, and
+dates become JSON date strings. The existing two-argument `ToJsonAsync` retains
+its string-based JSON format.
+
+### Tables in PDF and customizable Word output
+
+PDF exports now render table cells with column alignment, repeating headers
+and page numbers instead of concatenating row text with pipes.
+
+```csharp
+await ExcelConverter.ToPDFAsync("report.xlsx", "report.pdf",
+    new ExcelConversionOptions { DocumentTitle = "Sales", PdfLandscape = true });
+
+await ExcelConverter.ToWordAsync("report.xlsx", "report.docx",
+    new ExcelConversionOptions
+    {
+        DocumentTitle = "Sales",
+        WordTableStyle = "TableGrid",
+        WordLandscape = true
+    });
+```
+
+### Batch and all-worksheet conversion
+
+```csharp
+var sheetResults = await ExcelConverter.ConvertAllSheetsAsync(
+    "report.xlsx", "output/sheets", "csv");
+
+var files = new[] { "january.xlsx", "february.xlsx" };
+var batchResults = await ExcelConverter.ConvertBatchAsync(
+    files, "output/months", "pdf");
+
+foreach (var result in batchResults)
+{
+    if (!result.Success) Console.Error.WriteLine(result.Error);
+}
+```
+
+These methods return a result per workbook or worksheet. A failed conversion
+doesn't stop the remaining entries. Supported formats are `csv`, `json`, `pdf`
+and `docx`. Output directory creation is automatic.
+
+### ASP.NET Core example
+
+```csharp
+app.MapGet("/report", async () =>
+{
+    var output = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".pdf");
+    try
+    {
+        await ExcelConverter.ToPDFAsync("sales.xlsx", output,
+            new ExcelConversionOptions { DocumentTitle = "Sales report" });
+        return Results.File(await File.ReadAllBytesAsync(output),
+            "application/pdf", "sales.pdf");
+    }
+    finally
+    {
+        if (File.Exists(output)) File.Delete(output);
+    }
+});
+```
+
+The library is independent of ASP.NET Core. Validate any user-supplied input
+paths and file sizes before opening Excel workbooks. PDF export currently uses
+the built-in Latin font set; additional scripts may require custom fonts.
