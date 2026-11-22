@@ -19,7 +19,7 @@ await ExcelConverter.ToPDFAsync("report.xlsx", "report.pdf",
     });
 ```
 
-The initial renderer handles table-like worksheets. It does **not** yet preserve merged cells, images/charts, custom borders, print areas, or exact Excel pagination. It is not a pixel-perfect Excel-to-PDF converter.
+The formatting-aware PDF renderer now supports **fully selected horizontal and vertical merged cells**, solid per-edge borders, approximate Excel row heights, font sizes, colors and basic alignment. Merges crossing a selected range or from the repeated header into data are explicitly rejected. Dashed/double border styles are approximated with solid strokes. It still does **not** reproduce embedded images/charts, exact print areas, manual page breaks, or pixel-perfect Excel pagination.
 
 ## Extract only the cells you need
 
