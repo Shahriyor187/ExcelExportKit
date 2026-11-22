@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
 
     <PackageId>ExcelExportKit</PackageId>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Authors>Shahriyor Murodilov</Authors>
     <Description>Convert the first worksheet in an Excel workbook to CSV, JSON, PDF, or Word documents.</Description>
     <PackageTags>excel;xlsx;csv;json;pdf;word;docx;conversion;export</PackageTags>
