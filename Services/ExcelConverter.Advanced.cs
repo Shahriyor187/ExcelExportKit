@@ -31,7 +31,10 @@ public static partial class ExcelConverter
         ArgumentNullException.ThrowIfNull(options);
         var sheet = ReadWorksheet(inputFile, options);
         var records = new List<Dictionary<string, object?>>();
-        foreach (var row in options.PreserveJsonTypes ? sheet.TypedRows : sheet.Rows.Select(r => r.Cast<object?>().ToList()))
+        IEnumerable<IReadOnlyList<object?>> dataRows = options.PreserveJsonTypes
+            ? sheet.TypedRows
+            : sheet.Rows.Select(r => (IReadOnlyList<object?>)r.Cast<object?>().ToList());
+        foreach (var row in dataRows)
         {
             var record = new Dictionary<string, object?>(StringComparer.Ordinal);
             for (var index = 0; index < sheet.Headers.Count; index++)
