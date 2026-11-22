@@ -27,7 +27,9 @@
 
   <ItemGroup>
     <Compile Remove="tests/**/*.cs" />
-    <None Update="README.md" Pack="true" PackagePath="/" />
-    <None Update="LICENSE" Pack="true" PackagePath="/" />
+    <!-- Explicit package includes are required for NuGet readme discovery. -->
+    <None Remove="README.md;LICENSE" />
+    <None Include="README.md" Pack="true" PackagePath="" />
+    <None Include="LICENSE" Pack="true" PackagePath="" />
   </ItemGroup>
 </Project>
