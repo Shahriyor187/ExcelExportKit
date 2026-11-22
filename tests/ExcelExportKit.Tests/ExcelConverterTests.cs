@@ -345,6 +345,45 @@ public sealed class ExcelConverterTests
         return path;
     }
 
+
+    [Fact]
+    public async Task ToCsvAsync_ProtectsFormulaTextWhenRequested()
+    {
+        var input = CreateTempFile(".xlsx");
+        var output = CreateTempFile(".csv");
+        try
+        {
+            using (var workbook = new XLWorkbook())
+            {
+                var worksheet = workbook.AddWorksheet("Data");
+                worksheet.Cell("A1").Value = "Formula";
+                worksheet.Cell("A2").Value = "=1+2";
+                workbook.SaveAs(input);
+            }
+            await ExcelConverter.ToCSVAsync(input, output,
+                new ExcelConversionOptions { CsvProtectFormulas = true });
+            Assert.Contains("'=1+2", File.ReadAllText(output));
+        }
+        finally { DeleteIfExists(input); DeleteIfExists(output); }
+    }
+
+    [Fact]
+    public async Task ToWordAsync_WritesLandscapePageSettings()
+    {
+        var input = CreateWorkbook();
+        var output = CreateTempFile(".docx");
+        try
+        {
+            await ExcelConverter.ToWordAsync(input, output,
+                new ExcelConversionOptions { WordLandscape = true });
+            using var document = WordprocessingDocument.Open(output, false);
+            var section = Assert.Single(document.MainDocumentPart!.Document!.Body!
+                .Elements<DocumentFormat.OpenXml.Wordprocessing.SectionProperties>());
+            Assert.NotNull(section.GetFirstChild<DocumentFormat.OpenXml.Wordprocessing.PageSize>());
+        }
+        finally { DeleteIfExists(input); DeleteIfExists(output); }
+    }
+
     private static string CreateTempFile(string extension) =>
         Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}{extension}");
 
