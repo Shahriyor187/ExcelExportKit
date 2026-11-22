@@ -27,6 +27,13 @@ public sealed class ExcelConversionOptions
     /// <summary>Word table style identifier.</summary>
     public string WordTableStyle { get; set; } = "TableGrid";
 
+    /// <summary>
+    /// Preserve supported Excel fill/font colors, bold text, horizontal alignment and column-width proportions
+    /// when exporting to PDF. Off by default to preserve the existing PDF appearance.
+    /// Merged cells, images, borders and full Excel print-layout fidelity are not yet supported.
+    /// </summary>
+    public bool PdfPreserveCellFormatting { get; set; }
+
     /// <summary>Use a landscape page in Word exports.</summary>
     public bool WordLandscape { get; set; }
 

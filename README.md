@@ -6,6 +6,21 @@
 
 A .NET library for converting the first worksheet in an Excel workbook (`.xlsx`) to **CSV, JSON, PDF, or Word (DOCX)**.
 
+## Formatting-aware PDF (v2 foundation)
+
+PDF conversion can now carry over **supported RGB cell backgrounds and text colors, bold/italic text, horizontal alignment and proportional Excel column widths**. It is opt-in to preserve the previous rendering behavior.
+
+```csharp
+await ExcelConverter.ToPDFAsync("report.xlsx", "report.pdf",
+    new ExcelConversionOptions
+    {
+        PdfPreserveCellFormatting = true,
+        PdfLandscape = true
+    });
+```
+
+The initial renderer handles table-like worksheets. It does **not** yet preserve merged cells, images/charts, custom borders, print areas, or exact Excel pagination. It is not a pixel-perfect Excel-to-PDF converter.
+
 ## Requirements
 
 - .NET 8 or .NET 10

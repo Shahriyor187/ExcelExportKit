@@ -49,6 +49,9 @@ public static partial class ExcelConverter
     public static Task ToPDFAsync(string inputFile, string outputFile, ExcelConversionOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
+        if (options.PdfPreserveCellFormatting)
+            return WriteFormattingAwarePdfAsync(inputFile, outputFile, options);
+
         var sheet = ReadWorksheet(inputFile, options);
         return Task.Run(() =>
         {
