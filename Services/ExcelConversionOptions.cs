@@ -39,7 +39,7 @@ public sealed class ExcelConversionOptions
     /// <summary>
     /// Preserve supported Excel fill/font colors, bold text, horizontal alignment and column-width proportions
     /// when exporting to PDF. Off by default to preserve the existing PDF appearance.
-    /// Merged cells, images, borders and full Excel print-layout fidelity are not yet supported.
+    /// Fully selected merged cells, solid approximations of borders, row heights and font sizes are supported. Images and exact Excel print-layout fidelity are not yet supported.
     /// </summary>
     public bool PdfPreserveCellFormatting { get; set; }
 

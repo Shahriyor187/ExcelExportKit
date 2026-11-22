@@ -2,17 +2,18 @@ using ClosedXML.Excel;
 using System.Globalization;
 using TerraPDF.Core;
 using TerraPDF.Helpers;
+using TerraPDF.Infra;
+
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("ExcelExportKit.Tests")]
 
 namespace ExportFiles.Services;
 
 public static partial class ExcelConverter
 {
     /// <summary>
-    /// Creates a paginated PDF while preserving supported cell formatting:
-    /// RGB fills and text colors, bold/italic text, horizontal alignment and
-    /// proportional column widths. This is a formatting-aware table renderer,
-    /// not a pixel-exact Excel print engine; drawings, formulas, merged cells,
-    /// page breaks and print area are not preserved in this first version.
+    /// Renders a styled, paginated table from a selected Excel worksheet, including fully
+    /// selected merged cells, basic borders, source row heights and font sizes.
+    /// This remains a table renderer rather than an exact Excel print-layout engine.
     /// </summary>
     private static Task WriteFormattingAwarePdfAsync(
         string inputFile, string outputFile, ExcelConversionOptions options)
@@ -46,38 +47,25 @@ public static partial class ExcelConverter
                             foreach (var width in snapshot.ColumnWidths)
                                 columns.RelativeColumn(width);
                         });
+
+                        // HeaderRow repeats on subsequent pages. Spans within the header
+                        // are allowed, but spans crossing into data rows are rejected
+                        // during extraction to prevent corrupt repeated headers.
                         table.HeaderRow(row =>
                         {
-                            foreach (var cell in snapshot.Header)
-                            {
-                                var content = row.Cell();
-                                content = content.Background(cell.Background ?? "#1a4a8a");
-                                if (cell.AlignRight) content = content.AlignRight();
-                                else if (cell.AlignCenter) content = content.AlignCenter();
-                                var text = content.Padding(5).Text(cell.Text);
-                                if (cell.Bold || cell.Background is null) text.Bold();
-                                if (cell.Italic) text.Italic();
-                                text.FontColor(cell.Foreground ?? (cell.Background is null ? "#FFFFFF" : "#111111"));
-                            }
+                            foreach (var cell in snapshot.Header.Cells)
+                                RenderPdfCell(row.Cell(columnSpan: cell.ColumnSpan), cell, header: true);
                         });
 
-                        foreach (var cells in snapshot.Rows)
+                        foreach (var values in snapshot.Rows)
                         {
                             table.Row(row =>
                             {
-                                foreach (var cell in cells)
+                                foreach (var cell in values.Cells)
                                 {
-                                    var content = row.Cell();
-                                    if (cell.Background is not null)
-                                        content = content.Background(cell.Background);
-                                    if (cell.AlignRight) content = content.AlignRight();
-                                    else if (cell.AlignCenter) content = content.AlignCenter();
-                                    var text = content.BorderBottom(0.5, "#dddddd")
-                                        .Padding(5).Text(cell.Text);
-                                    if (cell.Bold) text.Bold();
-                                    if (cell.Italic) text.Italic();
-                                    if (cell.Foreground is not null)
-                                        text.FontColor(cell.Foreground);
+                                    RenderPdfCell(
+                                        row.Cell(columnSpan: cell.ColumnSpan, rowSpan: cell.RowSpan),
+                                        cell, header: false);
                                 }
                             });
                         }
@@ -87,8 +75,43 @@ public static partial class ExcelConverter
         });
     }
 
-    private static PdfFormattingSnapshot ReadPdfFormatting(string filePath, ExcelConversionOptions options)
+    private static void RenderPdfCell(IContainer container, PdfStyledCell cell, bool header)
     {
+        var current = container;
+        if (cell.Background is not null || header)
+            current = current.Background(cell.Background ?? "#1a4a8a");
+
+        if (cell.TopBorder is not null)
+            current = current.BorderTop(cell.TopBorder.Width, cell.TopBorder.Color);
+        if (cell.BottomBorder is not null)
+            current = current.BorderBottom(cell.BottomBorder.Width, cell.BottomBorder.Color);
+        else if (!header)
+            current = current.BorderBottom(0.5, "#dddddd");
+        if (cell.LeftBorder is not null)
+            current = current.BorderLeft(cell.LeftBorder.Width, cell.LeftBorder.Color);
+        if (cell.RightBorder is not null)
+            current = current.BorderRight(cell.RightBorder.Width, cell.RightBorder.Color);
+
+        current = current.PaddingVertical(cell.VerticalPadding).PaddingHorizontal(5);
+        if (cell.AlignRight)
+            current = current.AlignRight();
+        else if (cell.AlignCenter)
+            current = current.AlignCenter();
+
+        var text = current.Text(cell.Text);
+        if (header || cell.Bold) text.Bold();
+        if (cell.Italic) text.Italic();
+        text.FontSize(cell.FontSize);
+        text.FontColor(cell.Foreground ?? (header && cell.Background is null ? "#FFFFFF" : "#111111"));
+    }
+
+    /// <summary>
+    /// Internal to permit structural tests for merge shapes, boundaries and styles.
+    /// No PDF-related API is exposed to consumers in this iteration.
+    /// </summary>
+    internal static PdfFormattingSnapshot ReadPdfFormatting(string filePath, ExcelConversionOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
         if (!File.Exists(filePath))
             throw new FileNotFoundException("The Excel input file was not found.", filePath);
@@ -100,31 +123,87 @@ public static partial class ExcelConverter
             ? workbook.Worksheets.FirstOrDefault(w =>
                 string.Equals(w.Name, options.WorksheetName, StringComparison.OrdinalIgnoreCase))
             : workbook.Worksheets.Skip(options.WorksheetIndex).FirstOrDefault();
-
         if (worksheet is null)
             throw new ArgumentException("The selected worksheet does not exist.", nameof(options));
 
         var used = string.IsNullOrWhiteSpace(options.RangeAddress)
             ? worksheet.RangeUsed()
             : worksheet.Range(options.RangeAddress);
-        if (used is null || used.IsEmpty())
+        if (used is null)
             throw new InvalidDataException("The selected worksheet range does not contain any data.");
+
         var firstRow = used.RangeAddress.FirstAddress.RowNumber;
         var lastRow = used.RangeAddress.LastAddress.RowNumber;
         var firstCol = used.RangeAddress.FirstAddress.ColumnNumber;
         var lastCol = used.RangeAddress.LastAddress.ColumnNumber;
 
+        // A merge is allowed only when its entire rectangle is selected.
+        // Cropped spans or a vertical merge from the repeating header into
+        // data would silently distort the exported report.
+        var anchors = new Dictionary<(int Row, int Column), (int Rows, int Columns)>();
+        var occupied = new HashSet<(int Row, int Column)>();
+        foreach (var merged in worksheet.MergedRanges)
+        {
+            var a = merged.RangeAddress.FirstAddress;
+            var b = merged.RangeAddress.LastAddress;
+            if (b.RowNumber < firstRow || a.RowNumber > lastRow ||
+                b.ColumnNumber < firstCol || a.ColumnNumber > lastCol)
+                continue;
+
+            if (a.RowNumber < firstRow || b.RowNumber > lastRow ||
+                a.ColumnNumber < firstCol || b.ColumnNumber > lastCol)
+                throw new NotSupportedException(
+                    $"Merged range {merged.RangeAddress} crosses the selected PDF range. Select its entire rectangle.");
+
+            if (a.RowNumber == firstRow && b.RowNumber > firstRow)
+                throw new NotSupportedException(
+                    $"Merged range {merged.RangeAddress} crosses the repeated PDF header. " +
+                    "Use a selection whose first row is not vertically merged with the data.");
+
+            anchors.Add((a.RowNumber, a.ColumnNumber),
+                (b.RowNumber - a.RowNumber + 1, b.ColumnNumber - a.ColumnNumber + 1));
+            for (var row = a.RowNumber; row <= b.RowNumber; row++)
+                for (var col = a.ColumnNumber; col <= b.ColumnNumber; col++)
+                    if (row != a.RowNumber || col != a.ColumnNumber)
+                        occupied.Add((row, col));
+        }
+
+        // Validate merge boundaries before checking for empty cells: the selected
+        // rectangle may include only covered (blank) cells of a merged range.
+        if (used.IsEmpty())
+            throw new InvalidDataException("The selected worksheet range does not contain any data.");
+
         var widths = new List<double>();
         for (var col = firstCol; col <= lastCol; col++)
             widths.Add(Math.Clamp(worksheet.Column(col).Width, 3, 80));
 
-        IReadOnlyList<PdfStyledCell> GetRow(int rowIndex)
+        PdfStyledRow GetRow(int rowIndex)
         {
             var result = new List<PdfStyledCell>();
+            var containsMergedCells = false;
             for (var col = firstCol; col <= lastCol; col++)
             {
+                if (occupied.Contains((rowIndex, col)))
+                {
+                    containsMergedCells = true;
+                    continue;
+                }
+
+                var span = anchors.TryGetValue((rowIndex, col), out var rect)
+                    ? rect : (Rows: 1, Columns: 1);
+                if (span.Rows > 1 || span.Columns > 1)
+                    containsMergedCells = true;
+
                 var cell = worksheet.Cell(rowIndex, col);
+                var border = cell.Style.Border;
+                var rightEdge = worksheet.Cell(rowIndex, col + span.Columns - 1).Style.Border;
+                var bottomEdge = worksheet.Cell(rowIndex + span.Rows - 1, col).Style.Border;
                 var alignment = cell.Style.Alignment.Horizontal;
+                var rowHeight = worksheet.Row(rowIndex).Height;
+                // Excel height is measured in points; TerraPDF's cell height is
+                // content-driven. Padding approximates a minimum visible row height.
+                var padding = Math.Clamp((rowHeight - 11.0) / 2.0, 4, 30);
+
                 result.Add(new PdfStyledCell(
                     cell.GetFormattedString(CultureInfo.InvariantCulture),
                     ToPdfRgb(cell.Style.Fill.BackgroundColor),
@@ -132,21 +211,52 @@ public static partial class ExcelConverter
                     cell.Style.Font.Bold,
                     cell.Style.Font.Italic,
                     alignment == XLAlignmentHorizontalValues.Right,
-                    alignment == XLAlignmentHorizontalValues.Center));
+                    alignment == XLAlignmentHorizontalValues.Center,
+                    Math.Clamp(cell.Style.Font.FontSize, 6, 24),
+                    padding,
+                    span.Columns,
+                    span.Rows,
+                    AsPdfBorder(border.TopBorder, border.TopBorderColor),
+                    AsPdfBorder(bottomEdge.BottomBorder, bottomEdge.BottomBorderColor),
+                    AsPdfBorder(border.LeftBorder, border.LeftBorderColor),
+                    AsPdfBorder(rightEdge.RightBorder, rightEdge.RightBorderColor)));
             }
-            return result;
+            return new PdfStyledRow(result, containsMergedCells);
         }
 
         var header = GetRow(firstRow);
-        var rows = new List<IReadOnlyList<PdfStyledCell>>();
+        var rows = new List<PdfStyledRow>();
         for (var row = firstRow + 1; row <= lastRow; row++)
         {
-            var cells = GetRow(row);
-            if (options.SkipEmptyRows && cells.All(c => string.IsNullOrWhiteSpace(c.Text)))
+            var styled = GetRow(row);
+            // Never remove rows occupied by a rowspan: that would cause the
+            // TerraPDF table to put subsequent cells in the wrong positions.
+            if (options.SkipEmptyRows &&
+                styled.Cells.All(c => string.IsNullOrWhiteSpace(c.Text)) &&
+                !styled.ContainsMergedCells)
                 continue;
-            rows.Add(cells);
+            rows.Add(styled);
         }
+
         return new PdfFormattingSnapshot(widths, header, rows);
+    }
+
+    private static PdfCellBorder? AsPdfBorder(XLBorderStyleValues style, XLColor color)
+    {
+        if (style == XLBorderStyleValues.None)
+            return null;
+
+        // PDF currently supports solid per-edge strokes; Excel's dash patterns
+        // and double-line borders are intentionally approximated.
+        var width = style switch
+        {
+            XLBorderStyleValues.Hair => 0.35,
+            XLBorderStyleValues.Thin => 0.7,
+            XLBorderStyleValues.Medium => 1.25,
+            XLBorderStyleValues.Thick => 2.25,
+            _ => 0.8
+        };
+        return new PdfCellBorder(width, ToPdfRgb(color) ?? "#505050");
     }
 
     private static string? ToPdfRgb(XLColor color)
@@ -157,12 +267,20 @@ public static partial class ExcelConverter
         return $"#{rgb.R:X2}{rgb.G:X2}{rgb.B:X2}";
     }
 
-    private sealed record PdfStyledCell(
-        string Text, string? Background, string? Foreground,
-        bool Bold, bool Italic, bool AlignRight, bool AlignCenter);
+    internal sealed record PdfCellBorder(double Width, string Color);
 
-    private sealed record PdfFormattingSnapshot(
+    internal sealed record PdfStyledCell(
+        string Text, string? Background, string? Foreground,
+        bool Bold, bool Italic, bool AlignRight, bool AlignCenter,
+        double FontSize, double VerticalPadding, int ColumnSpan, int RowSpan,
+        PdfCellBorder? TopBorder, PdfCellBorder? BottomBorder,
+        PdfCellBorder? LeftBorder, PdfCellBorder? RightBorder);
+
+    internal sealed record PdfStyledRow(
+        IReadOnlyList<PdfStyledCell> Cells, bool ContainsMergedCells);
+
+    internal sealed record PdfFormattingSnapshot(
         IReadOnlyList<double> ColumnWidths,
-        IReadOnlyList<PdfStyledCell> Header,
-        IReadOnlyList<IReadOnlyList<PdfStyledCell>> Rows);
+        PdfStyledRow Header,
+        IReadOnlyList<PdfStyledRow> Rows);
 }
