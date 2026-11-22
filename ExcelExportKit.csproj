@@ -1,46 +1,33 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-    <Authors>Murodilov Shahriyor</Authors>
-    <Description>Overview:
-The ExcelConverter project is a utility for converting Excel files (.xlsx) into various other formats, including JSON, PDF, CSV, and Word documents. It provides methods to perform these conversions efficiently and reliably.
 
-Features:
-
-Conversion of Excel files to JSON format with structured data representation.
-Conversion of Excel files to PDF format, maintaining the tabular structure of the spreadsheet.
-Exporting Excel files to CSV format for compatibility with various data processing tools.
-Converting Excel files to Word documents while preserving the tabular layout and content.</Description>
-    <PackageIcon>Без названия (1).jpg</PackageIcon>
+    <PackageId>ExcelExportKit</PackageId>
+    <Version>1.1.0</Version>
+    <Authors>Shahriyor Murodilov</Authors>
+    <Description>Convert the first worksheet in an Excel workbook to CSV, JSON, PDF, or Word documents.</Description>
+    <PackageTags>excel;xlsx;csv;json;pdf;word;docx;conversion;export</PackageTags>
+    <PackageProjectUrl>https://github.com/Shahriyor187/ExcelExportKit</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Shahriyor187/ExcelExportKit</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <IncludeSymbols>True</IncludeSymbols>
-    <AnalysisLevel>latest</AnalysisLevel>
-    <Title>Excel Converter Utility: Convert Excel Files to Various Formats</Title>
-    <EnforceCodeStyleInBuild>False</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="..\..\..\Downloads\Без названия (1).jpg">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
-    <None Include="C:\Users\Intel Computers\Desktop\README.md">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
+    <PackageReference Include="ClosedXML" Version="0.105.1" />
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.5.1" />
+    <PackageReference Include="TerraPDF" Version="2.4.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="CsvHelper" Version="31.0.0" />
-    <PackageReference Include="DocumentFormat.OpenXml" Version="3.0.1" />
-    <PackageReference Include="EPPlus" Version="7.0.9" />
-    <PackageReference Include="iTextSharp" Version="5.5.13.3" />
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <Compile Remove="tests/**/*.cs" />
+    <None Update="README.md" Pack="true" PackagePath="\\" />
+    <None Update="LICENSE" Pack="true" PackagePath="\\" />
   </ItemGroup>
-
 </Project>
