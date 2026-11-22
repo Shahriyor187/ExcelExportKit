@@ -29,6 +29,15 @@ public sealed class ExcelConversionOptions
 
     /// <summary>Use a landscape page in Word exports.</summary>
     public bool WordLandscape { get; set; }
+
+    /// <summary>Optional header text on each Word page.</summary>
+    public string? WordHeaderText { get; set; }
+
+    /// <summary>Optional footer text on each Word page.</summary>
+    public string? WordFooterText { get; set; }
+
+    /// <summary>Optional fixed Word table cell width in twips.</summary>
+    public int? WordColumnWidthTwips { get; set; }
 }
 
 /// <summary>Result of a single workbook conversion in a batch.</summary>
