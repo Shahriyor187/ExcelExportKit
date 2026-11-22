@@ -9,6 +9,15 @@ public sealed class ExcelConversionOptions
     /// <summary>Zero-based worksheet index; defaults to the first worksheet.</summary>
     public int WorksheetIndex { get; set; }
 
+    /// <summary>
+    /// Optional A1-style range (for example "B3:D100"). When supplied, the first row
+    /// of this range is treated as headers and only its cells are converted.
+    /// </summary>
+    public string? RangeAddress { get; set; }
+
+    /// <summary>Skip rows whose selected cells contain no values.</summary>
+    public bool SkipEmptyRows { get; set; }
+
     /// <summary>Emit JSON numbers and booleans using their native types when possible.</summary>
     public bool PreserveJsonTypes { get; set; }
 
