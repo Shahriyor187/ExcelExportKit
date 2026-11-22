@@ -129,7 +129,7 @@ public static partial class ExcelConverter
         var used = string.IsNullOrWhiteSpace(options.RangeAddress)
             ? worksheet.RangeUsed()
             : worksheet.Range(options.RangeAddress);
-        if (used is null || used.IsEmpty())
+        if (used is null)
             throw new InvalidDataException("The selected worksheet range does not contain any data.");
 
         var firstRow = used.RangeAddress.FirstAddress.RowNumber;
@@ -167,6 +167,11 @@ public static partial class ExcelConverter
                     if (row != a.RowNumber || col != a.ColumnNumber)
                         occupied.Add((row, col));
         }
+
+        // Validate merge boundaries before checking for empty cells: the selected
+        // rectangle may include only covered (blank) cells of a merged range.
+        if (used.IsEmpty())
+            throw new InvalidDataException("The selected worksheet range does not contain any data.");
 
         var widths = new List<double>();
         for (var col = firstCol; col <= lastCol; col++)
