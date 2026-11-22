@@ -315,6 +315,30 @@ public sealed class ExcelConverterTests
         }
     }
 
+
+    [Fact]
+    public async Task ToWordAsync_AddsHeaderFooterAndFixedCellWidths()
+    {
+        var input = CreateWorkbook();
+        var output = CreateTempFile(".docx");
+        try
+        {
+            await ExcelConverter.ToWordAsync(input, output, new ExcelConversionOptions
+            {
+                WordHeaderText = "Sales report",
+                WordFooterText = "Internal",
+                WordColumnWidthTwips = 1800
+            });
+            using var doc = WordprocessingDocument.Open(output, false);
+            Assert.Contains("Sales report", Assert.Single(doc.MainDocumentPart!.HeaderParts).Header.InnerText);
+            Assert.Contains("Internal", Assert.Single(doc.MainDocumentPart.FooterParts).Footer.InnerText);
+            var table = Assert.Single(doc.MainDocumentPart.Document!.Body!
+                .Elements<DocumentFormat.OpenXml.Wordprocessing.Table>());
+            Assert.NotEmpty(table.Descendants<DocumentFormat.OpenXml.Wordprocessing.TableCellWidth>());
+        }
+        finally { DeleteIfExists(input); DeleteIfExists(output); }
+    }
+
     private static string CreateWorkbook(bool includeQuotedField = false)
     {
         var path = CreateTempFile(".xlsx");
