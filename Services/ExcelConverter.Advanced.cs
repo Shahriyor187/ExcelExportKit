@@ -205,8 +205,11 @@ public static partial class ExcelConverter
             : workbook.Worksheets.Skip(options.WorksheetIndex).FirstOrDefault();
         if (worksheet is null)
             throw new ArgumentException("The selected worksheet does not exist.", nameof(options));
-        var usedRange = worksheet.RangeUsed()
-            ?? throw new InvalidDataException("The selected worksheet does not contain any data.");
+        var usedRange = string.IsNullOrWhiteSpace(options.RangeAddress)
+            ? worksheet.RangeUsed()
+            : worksheet.Range(options.RangeAddress);
+        if (usedRange is null || usedRange.IsEmpty())
+            throw new InvalidDataException("The selected worksheet range does not contain any data.");
         var firstRow = usedRange.RangeAddress.FirstAddress.RowNumber;
         var lastRow = usedRange.RangeAddress.LastAddress.RowNumber;
         var firstColumn = usedRange.RangeAddress.FirstAddress.ColumnNumber;
@@ -236,6 +239,8 @@ public static partial class ExcelConverter
                     _ => cell.GetFormattedString(CultureInfo.InvariantCulture)
                 });
             }
+            if (options.SkipEmptyRows && display.All(string.IsNullOrWhiteSpace))
+                continue;
             displayRows.Add(display);
             typedRows.Add(typed);
         }
