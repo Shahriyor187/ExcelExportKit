@@ -87,7 +87,10 @@ await ExcelConverter.ToWordAsync("report.xlsx", "report.docx",
     {
         DocumentTitle = "Sales",
         WordTableStyle = "TableGrid",
-        WordLandscape = true
+        WordLandscape = true,
+        WordHeaderText = "Sales report",
+        WordFooterText = "Internal",
+        WordColumnWidthTwips = 1800
     });
 ```
 
