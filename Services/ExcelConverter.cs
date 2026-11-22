@@ -18,7 +18,7 @@ namespace ExportFiles.Services;
 /// are replaced with unique column names. Cell values are exported using their
 /// formatted display text.
 /// </remarks>
-public static class ExcelConverter
+public static partial class ExcelConverter
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -29,108 +29,24 @@ public static class ExcelConverter
     /// Converts the first worksheet of an Excel workbook to CSV.
     /// Fields containing commas, quotes, or line breaks are escaped.
     /// </summary>
-    public static async Task ToCSVAsync(string inputFile, string outputFile)
-    {
-        var sheet = ReadFirstWorksheet(inputFile);
-        var builder = new StringBuilder();
+    public static Task ToCSVAsync(string inputFile, string outputFile) =>
+        ToCSVAsync(inputFile, outputFile, new ExcelConversionOptions { CsvProtectFormulas = false });
 
-        AppendCsvRow(builder, sheet.Headers);
+    /// <summary>Converts the first worksheet to JSON, preserving text-oriented output.</summary>
+    public static Task ToJsonAsync(string inputFile, string outputFile) =>
+        ToJsonAsync(inputFile, outputFile, new ExcelConversionOptions());
 
-        foreach (var row in sheet.Rows)
-        {
-            AppendCsvRow(builder, row);
-        }
+    /// <summary>Converts the first worksheet to a PDF with a properly laid out table.</summary>
+    public static Task ToPDFAsync(string inputFile, string outputFile) =>
+        ToPDFAsync(inputFile, outputFile, new ExcelConversionOptions());
 
-        await File.WriteAllTextAsync(outputFile, builder.ToString(), Utf8WithoutBom)
-            .ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Converts the first worksheet of an Excel workbook to a JSON array of objects.
-    /// The first used row supplies the property names.
-    /// </summary>
-    public static async Task ToJsonAsync(string inputFile, string outputFile)
-    {
-        var sheet = ReadFirstWorksheet(inputFile);
-        var records = new List<Dictionary<string, string>>(sheet.Rows.Count);
-
-        foreach (var row in sheet.Rows)
-        {
-            var record = new Dictionary<string, string>(StringComparer.Ordinal);
-
-            for (var columnIndex = 0; columnIndex < sheet.Headers.Count; columnIndex++)
-            {
-                record[sheet.Headers[columnIndex]] = row[columnIndex];
-            }
-
-            records.Add(record);
-        }
-
-        var json = JsonSerializer.Serialize(records, JsonOptions);
-        await File.WriteAllTextAsync(outputFile, json, Utf8WithoutBom)
-            .ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Converts the first worksheet of an Excel workbook to a paginated PDF document.
-    /// </summary>
-    public static Task ToPDFAsync(string inputFile, string outputFile)
-    {
-        var sheet = ReadFirstWorksheet(inputFile);
-
-        return Task.Run(() =>
-        {
-            TerraPDF.Core.Document.Create(container =>
-            {
-                container.Page(page =>
-                {
-                    page.Size(PageSize.A4);
-                    page.Margin(2, Unit.Centimetre);
-                    page.DefaultTextStyle(style => style.FontSize(9));
-
-                    page.Header()
-                        .Text("Excel worksheet export")
-                        .Bold()
-                        .FontSize(14);
-
-                    page.Content().Column(column =>
-                    {
-                        column.Spacing(4);
-                        column.Item()
-                            .Text(string.Join("  |  ", sheet.Headers))
-                            .Bold();
-
-                        foreach (var row in sheet.Rows)
-                        {
-                            column.Item().Text(string.Join("  |  ", row));
-                        }
-                    });
-                });
-            }).PublishPdf(outputFile);
-        });
-    }
-
-    /// <summary>
-    /// Converts the first worksheet of an Excel workbook to a Word document
-    /// containing a single table with a header row.
-    /// </summary>
-    /// <remarks>
-    /// This method preserves the original API name. Prefer <see cref="ToWordAsync"/>
-    /// in new code.
-    /// </remarks>
+    /// <summary>Preserved original Word export method.</summary>
     public static Task ToWord(string inputFile, string outputFile) =>
         ToWordAsync(inputFile, outputFile);
 
-    /// <summary>
-    /// Converts the first worksheet of an Excel workbook to a Word document
-    /// containing a single table with a header row.
-    /// </summary>
-    public static Task ToWordAsync(string inputFile, string outputFile)
-    {
-        var sheet = ReadFirstWorksheet(inputFile);
-
-        return Task.Run(() => WriteWordDocument(sheet, outputFile));
-    }
+    /// <summary>Converts the first worksheet to a Word table.</summary>
+    public static Task ToWordAsync(string inputFile, string outputFile) =>
+        ToWordAsync(inputFile, outputFile, new ExcelConversionOptions());
 
     private static WorksheetData ReadFirstWorksheet(string inputFile)
     {
