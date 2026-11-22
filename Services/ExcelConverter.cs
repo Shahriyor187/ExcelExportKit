@@ -30,7 +30,7 @@ public static partial class ExcelConverter
     /// Fields containing commas, quotes, or line breaks are escaped.
     /// </summary>
     public static Task ToCSVAsync(string inputFile, string outputFile) =>
-        ToCSVAsync(inputFile, outputFile, new ExcelConversionOptions());
+        ToCSVAsync(inputFile, outputFile, new ExcelConversionOptions { CsvProtectFormulas = false });
 
     /// <summary>Converts the first worksheet to JSON, preserving text-oriented output.</summary>
     public static Task ToJsonAsync(string inputFile, string outputFile) =>
