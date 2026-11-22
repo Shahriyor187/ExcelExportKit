@@ -2,7 +2,7 @@
 
 [![NuGet](https://img.shields.io/nuget/v/ExcelExportKit)](https://www.nuget.org/packages/ExcelExportKit)
 [![Build](https://github.com/Shahriyor187/ExcelExportKit/actions/workflows/ci.yml/badge.svg)](https://github.com/Shahriyor187/ExcelExportKit/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE.txt)
 
 A .NET library for converting the first worksheet in an Excel workbook (`.xlsx`) to **CSV, JSON, PDF, or Word (DOCX)**.
 
@@ -48,7 +48,7 @@ The original `ToWord(inputFile, outputFile)` method remains available for compat
 - [DocumentFormat.OpenXml](https://github.com/dotnet/Open-XML-SDK) — MIT, for creating DOCX files.
 - [TerraPDF](https://terrapdf.com/) — MIT, for generating PDF files.
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE).
+This project is licensed under the MIT License. See [LICENSE](LICENSE.txt).
 
 ## Limitations
 
