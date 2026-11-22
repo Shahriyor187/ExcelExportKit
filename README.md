@@ -131,6 +131,8 @@ app.MapGet("/report", async () =>
 });
 ```
 
+The options-based CSV overload protects formula-like values by default. The original two-argument `ToCSVAsync` preserves its prior output for compatibility.
+
 The library is independent of ASP.NET Core. Validate any user-supplied input
 paths and file sizes before opening Excel workbooks. PDF export currently uses
 the built-in Latin font set; additional scripts may require custom fonts.
