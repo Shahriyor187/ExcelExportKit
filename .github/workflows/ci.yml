@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [master, "chore/**"]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build-test-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 8 and 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Restore
+        run: dotnet restore tests/ExcelExportKit.Tests/ExcelExportKit.Tests.csproj
+
+      - name: Test on .NET 8 and .NET 10
+        run: dotnet test tests/ExcelExportKit.Tests/ExcelExportKit.Tests.csproj --configuration Release --no-restore
+
+      - name: Pack both target frameworks
+        run: dotnet pack ExcelExportKit.csproj --configuration Release --no-restore --output ./artifacts
+
+      - name: Verify NuGet package contents
+        env:
+          PACKAGE_ID: ExcelExportKit
+          LICENSE_FILE: LICENSE.txt
+        run: |
+          python3 - <<'PY'
+          import glob
+          import os
+          import xml.etree.ElementTree as ET
+          import zipfile
+
+          package_id = os.environ["PACKAGE_ID"]
+          license_file = os.environ["LICENSE_FILE"]
+          packages = glob.glob("artifacts/*.nupkg")
+          assert len(packages) == 1, f"Expected exactly one .nupkg: {packages}"
+          with zipfile.ZipFile(packages[0]) as archive:
+              names = archive.namelist()
+              required = {
+                  "README.md",
+                  license_file,
+                  "lib/net8.0/" + package_id + ".dll",
+                  "lib/net10.0/" + package_id + ".dll",
+              }
+              missing = required.difference(names)
+              assert not missing, f"Missing package entries: {sorted(missing)}"
+              nuspecs = [name for name in names if name.endswith(".nuspec")]
+              assert len(nuspecs) == 1, f"Expected one nuspec, got {nuspecs}"
+              root = ET.fromstring(archive.read(nuspecs[0]))
+              metadata = next(child for child in root if child.tag.endswith("metadata"))
+              readme = next(
+                  (child.text for child in metadata if child.tag.endswith("readme")),
+                  None,
+              )
+              assert readme == "README.md", f"Unexpected README metadata: {readme}"
+              print(f"Verified {packages[0]}: README, license, both target frameworks")
+          PY
+
+      - name: Smoke-test NuGet consumer on .NET 8
+        env:
+          PACKAGE_ID: ExcelExportKit
+        run: |
+          mkdir -p consumer
+          cd consumer
+          dotnet new console --framework net8.0 --no-restore
+          dotnet add package "$PACKAGE_ID" --version 1.1.0 --no-restore
+          dotnet restore --source ../artifacts --source https://api.nuget.org/v3/index.json
+          dotnet build --configuration Release --no-restore
+
+      - name: Upload NuGet build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ExcelExportKit-nuget
+          path: |
+            artifacts/*.nupkg
+            artifacts/*.snupkg
+          if-no-files-found: error
