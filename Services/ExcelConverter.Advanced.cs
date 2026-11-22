@@ -19,7 +19,7 @@ public static partial class ExcelConverter
         ValidateCsvDelimiter(options.CsvDelimiter);
         var sheet = ReadWorksheet(inputFile, options);
         var output = new StringBuilder();
-        AppendSelectedCsvRow(output, sheet.Headers, options.CsvDelimiter);
+        AppendSelectedCsvRow(output, sheet.Headers.Select(heading => SafeCsvValue(heading, options.CsvProtectFormulas)), options.CsvDelimiter);
         foreach (var row in sheet.Rows)
             AppendSelectedCsvRow(output, row.Select(value => SafeCsvValue(value, options.CsvProtectFormulas)), options.CsvDelimiter);
         await File.WriteAllTextAsync(outputFile, output.ToString(), Utf8WithoutBom).ConfigureAwait(false);
