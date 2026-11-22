@@ -330,8 +330,8 @@ public sealed class ExcelConverterTests
                 WordColumnWidthTwips = 1800
             });
             using var doc = WordprocessingDocument.Open(output, false);
-            Assert.Contains("Sales report", Assert.Single(doc.MainDocumentPart!.HeaderParts).Header.InnerText);
-            Assert.Contains("Internal", Assert.Single(doc.MainDocumentPart.FooterParts).Footer.InnerText);
+            Assert.Contains("Sales report", Assert.Single(doc.MainDocumentPart!.HeaderParts).Header!.InnerText);
+            Assert.Contains("Internal", Assert.Single(doc.MainDocumentPart.FooterParts).Footer!.InnerText);
             var table = Assert.Single(doc.MainDocumentPart.Document!.Body!
                 .Elements<DocumentFormat.OpenXml.Wordprocessing.Table>());
             Assert.NotEmpty(table.Descendants<DocumentFormat.OpenXml.Wordprocessing.TableCellWidth>());
