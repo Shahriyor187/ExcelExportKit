@@ -85,7 +85,7 @@ public sealed class ExcelConverterTests
             await ExcelConverter.ToWordAsync(input, output);
 
             using var document = WordprocessingDocument.Open(output, false);
-            var table = Assert.Single(document.MainDocumentPart!.Document.Body!.Elements<
+            var table = Assert.Single(document.MainDocumentPart!.Document!.Body!.Elements<
                 DocumentFormat.OpenXml.Wordprocessing.Table>());
 
             Assert.Equal(3, table.Elements<DocumentFormat.OpenXml.Wordprocessing.TableRow>().Count());
@@ -109,6 +109,63 @@ public sealed class ExcelConverterTests
         }
         finally
         {
+            DeleteIfExists(output);
+        }
+    }
+
+
+    [Fact]
+    public async Task ToJsonAsync_MakesDuplicateHeadersUnique()
+    {
+        var input = CreateTempFile(".xlsx");
+        var output = CreateTempFile(".json");
+
+        try
+        {
+            using (var workbook = new XLWorkbook())
+            {
+                var sheet = workbook.AddWorksheet("Data");
+                sheet.Cell(1, 1).Value = "Name";
+                sheet.Cell(1, 2).Value = "Name";
+                sheet.Cell(2, 1).Value = "Amina";
+                sheet.Cell(2, 2).Value = "Ali";
+                workbook.SaveAs(input);
+            }
+
+            await ExcelConverter.ToJsonAsync(input, output);
+            using var json = JsonDocument.Parse(File.ReadAllText(output));
+            var record = json.RootElement[0];
+
+            Assert.Equal("Amina", record.GetProperty("Name").GetString());
+            Assert.Equal("Ali", record.GetProperty("Name_2").GetString());
+        }
+        finally
+        {
+            DeleteIfExists(input);
+            DeleteIfExists(output);
+        }
+    }
+
+    [Fact]
+    public async Task ToJsonAsync_RejectsEmptyWorksheet()
+    {
+        var input = CreateTempFile(".xlsx");
+        var output = CreateTempFile(".json");
+
+        try
+        {
+            using (var workbook = new XLWorkbook())
+            {
+                workbook.AddWorksheet("Empty");
+                workbook.SaveAs(input);
+            }
+
+            await Assert.ThrowsAsync<InvalidDataException>(
+                () => ExcelConverter.ToJsonAsync(input, output));
+        }
+        finally
+        {
+            DeleteIfExists(input);
             DeleteIfExists(output);
         }
     }
