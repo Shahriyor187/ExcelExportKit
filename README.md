@@ -21,6 +21,23 @@ await ExcelConverter.ToPDFAsync("report.xlsx", "report.pdf",
 
 The initial renderer handles table-like worksheets. It does **not** yet preserve merged cells, images/charts, custom borders, print areas, or exact Excel pagination. It is not a pixel-perfect Excel-to-PDF converter.
 
+## Extract only the cells you need
+
+Select a named sheet and an **A1-style range** for CSV, JSON, PDF, or Word conversion. The first row of the range is treated as its column headers; blank rows can be excluded.
+
+```csharp
+await ExcelConverter.ToJsonAsync("results.xlsx", "results.json",
+    new ExcelConversionOptions
+    {
+        WorksheetName = "Scores",
+        RangeAddress = "B3:D500",
+        SkipEmptyRows = true,
+        PreserveJsonTypes = true
+    });
+```
+
+This is an in-memory ClosedXML reader. It does not yet provide forward-only extraction for extremely large uploaded workbooks.
+
 ## Requirements
 
 - .NET 8 or .NET 10
