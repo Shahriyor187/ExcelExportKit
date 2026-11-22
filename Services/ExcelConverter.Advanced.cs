@@ -252,7 +252,7 @@ public static partial class ExcelConverter
 
     private static void ValidateCsvDelimiter(char delimiter)
     {
-        if (delimiter is '\r' or '\n' or '"')
+        if (delimiter is '\0' or '\r' or '\n' or '"')
             throw new ArgumentException("Delimiter cannot be a newline or quote.", nameof(delimiter));
     }
 
@@ -278,11 +278,6 @@ public static partial class ExcelConverter
         var mainPart = word.AddMainDocumentPart();
         mainPart.Document = new Wp.Document(new Wp.Body());
         var body = mainPart.Document.Body!;
-        if (options.WordLandscape)
-        {
-            body.Append(new Wp.SectionProperties(
-                new Wp.PageSize { Width = 16838, Height = 11906, Orient = Wp.PageOrientationValues.Landscape }));
-        }
         if (!string.IsNullOrWhiteSpace(options.DocumentTitle))
         {
             var title = new Wp.Paragraph(new Wp.Run(new Wp.RunProperties(new Wp.Bold()),
@@ -296,6 +291,11 @@ public static partial class ExcelConverter
         foreach (var row in sheet.Rows)
             AppendWordRow(table, row, isHeader: false);
         body.Append(table);
+        if (options.WordLandscape)
+        {
+            body.Append(new Wp.SectionProperties(
+                new Wp.PageSize { Width = 16838, Height = 11906, Orient = Wp.PageOrientationValues.Landscape }));
+        }
         mainPart.Document.Save();
     }
 
