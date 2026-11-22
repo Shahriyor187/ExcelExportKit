@@ -1,0 +1,78 @@
+name: Publish to NuGet.org
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "NuGet version to publish (must match .csproj Version)"
+        required: true
+        default: "1.1.0"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: nuget-publishing
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET 8 and 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Validate version and API key
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          if [ -z "$NUGET_API_KEY" ]; then
+            echo "::error::Configure NUGET_API_KEY in the nuget-publishing environment secrets."
+            exit 1
+          fi
+          python3 - <<'PY'
+          import os, re, xml.etree.ElementTree as ET
+          version=os.environ["RELEASE_VERSION"]
+          if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+",version):
+              raise SystemExit("Release version must be X.Y.Z")
+          root=ET.parse("ExcelExportKit.csproj").getroot()
+          configured=root.findtext("./PropertyGroup/Version")
+          if configured!=version:
+              raise SystemExit(f"Version mismatch: workflow={version}, project={configured}")
+          print("Release version verified:",version)
+          PY
+
+      - name: Restore and run tests
+        run: |
+          dotnet restore tests/ExcelExportKit.Tests/ExcelExportKit.Tests.csproj
+          dotnet test tests/ExcelExportKit.Tests/ExcelExportKit.Tests.csproj -c Release --no-restore
+
+      - name: Pack
+        run: dotnet pack ExcelExportKit.csproj -c Release --output ./artifacts
+
+      - name: Verify package contents
+        run: |
+          python3 - <<'PY'
+          import zipfile
+          from pathlib import Path
+          files=list(Path("artifacts").glob("*.nupkg"))
+          assert len(files)==1, f"Expected exactly one NuGet package: {files}"
+          with zipfile.ZipFile(files[0]) as archive:
+              names=set(archive.namelist())
+              required={"README.md","LICENSE.txt","lib/net8.0/ExcelExportKit.dll","lib/net10.0/ExcelExportKit.dll"}
+              assert required <= names, f"Missing files: {required - names}"
+          print("Validated package:",files[0])
+          PY
+
+      - name: Publish
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          dotnet nuget push "artifacts/*.nupkg" \
+            --api-key "$NUGET_API_KEY" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
