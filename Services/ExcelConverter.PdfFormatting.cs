@@ -104,8 +104,11 @@ public static partial class ExcelConverter
         if (worksheet is null)
             throw new ArgumentException("The selected worksheet does not exist.", nameof(options));
 
-        var used = worksheet.RangeUsed()
-            ?? throw new InvalidDataException("The selected worksheet does not contain any data.");
+        var used = string.IsNullOrWhiteSpace(options.RangeAddress)
+            ? worksheet.RangeUsed()
+            : worksheet.Range(options.RangeAddress);
+        if (used is null || used.IsEmpty())
+            throw new InvalidDataException("The selected worksheet range does not contain any data.");
         var firstRow = used.RangeAddress.FirstAddress.RowNumber;
         var lastRow = used.RangeAddress.LastAddress.RowNumber;
         var firstCol = used.RangeAddress.FirstAddress.ColumnNumber;
@@ -137,7 +140,12 @@ public static partial class ExcelConverter
         var header = GetRow(firstRow);
         var rows = new List<IReadOnlyList<PdfStyledCell>>();
         for (var row = firstRow + 1; row <= lastRow; row++)
-            rows.Add(GetRow(row));
+        {
+            var cells = GetRow(row);
+            if (options.SkipEmptyRows && cells.All(c => string.IsNullOrWhiteSpace(c.Text)))
+                continue;
+            rows.Add(cells);
+        }
         return new PdfFormattingSnapshot(widths, header, rows);
     }
 
