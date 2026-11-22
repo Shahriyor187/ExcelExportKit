@@ -274,29 +274,100 @@ public static partial class ExcelConverter
 
     private static void WriteStyledWordDocument(SelectedWorksheet sheet, string outputPath, ExcelConversionOptions options)
     {
+        if (options.WordColumnWidthTwips is <= 0)
+            throw new ArgumentOutOfRangeException(nameof(options.WordColumnWidthTwips));
+
         using var word = WordprocessingDocument.Create(outputPath, WordprocessingDocumentType.Document);
         var mainPart = word.AddMainDocumentPart();
         mainPart.Document = new Wp.Document(new Wp.Body());
         var body = mainPart.Document.Body!;
+
         if (!string.IsNullOrWhiteSpace(options.DocumentTitle))
         {
             var title = new Wp.Paragraph(new Wp.Run(new Wp.RunProperties(new Wp.Bold()),
                 new Wp.Text(options.DocumentTitle)));
             body.Append(title);
         }
+
         var table = new Wp.Table();
         if (!string.IsNullOrWhiteSpace(options.WordTableStyle))
             table.Append(new Wp.TableProperties(new Wp.TableStyle { Val = options.WordTableStyle }));
-        AppendWordRow(table, sheet.Headers, isHeader: true);
+
+        if (options.WordColumnWidthTwips is int width)
+        {
+            var grid = new Wp.TableGrid();
+            foreach (var _ in sheet.Headers)
+                grid.Append(new Wp.GridColumn { Width = width.ToString(CultureInfo.InvariantCulture) });
+            table.Append(grid);
+        }
+
+        AddStyledWordRow(table, sheet.Headers, isHeader: true, options.WordColumnWidthTwips);
         foreach (var row in sheet.Rows)
-            AppendWordRow(table, row, isHeader: false);
+            AddStyledWordRow(table, row, isHeader: false, options.WordColumnWidthTwips);
         body.Append(table);
+
+        var section = new Wp.SectionProperties();
+        if (!string.IsNullOrWhiteSpace(options.WordHeaderText))
+        {
+            var header = mainPart.AddNewPart<HeaderPart>();
+            header.Header = new Wp.Header(new Wp.Paragraph(new Wp.Run(new Wp.Text(options.WordHeaderText))));
+            header.Header.Save();
+            section.Append(new Wp.HeaderReference
+            {
+                Type = Wp.HeaderFooterValues.Default,
+                Id = mainPart.GetIdOfPart(header)
+            });
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.WordFooterText))
+        {
+            var footer = mainPart.AddNewPart<FooterPart>();
+            footer.Footer = new Wp.Footer(new Wp.Paragraph(new Wp.Run(new Wp.Text(options.WordFooterText))));
+            footer.Footer.Save();
+            section.Append(new Wp.FooterReference
+            {
+                Type = Wp.HeaderFooterValues.Default,
+                Id = mainPart.GetIdOfPart(footer)
+            });
+        }
+
         if (options.WordLandscape)
         {
-            body.Append(new Wp.SectionProperties(
-                new Wp.PageSize { Width = 16838, Height = 11906, Orient = Wp.PageOrientationValues.Landscape }));
+            section.Append(new Wp.PageSize
+            {
+                Width = 16838,
+                Height = 11906,
+                Orient = Wp.PageOrientationValues.Landscape
+            });
         }
+
+        if (section.HasChildren)
+            body.Append(section);
         mainPart.Document.Save();
+    }
+
+    private static void AddStyledWordRow(
+        Wp.Table table, IReadOnlyList<string> values, bool isHeader, int? columnWidthTwips)
+    {
+        var tableRow = new Wp.TableRow();
+        foreach (var value in values)
+        {
+            var run = new Wp.Run();
+            if (isHeader)
+                run.Append(new Wp.RunProperties(new Wp.Bold()));
+            run.Append(new Wp.Text(value) { Space = SpaceProcessingModeValues.Preserve });
+            var cell = new Wp.TableCell(new Wp.Paragraph(run));
+            if (columnWidthTwips is int width)
+            {
+                cell.PrependChild(new Wp.TableCellProperties(new Wp.TableCellWidth
+                {
+                    Width = width.ToString(CultureInfo.InvariantCulture),
+                    Type = Wp.TableWidthUnitValues.Dxa
+                }));
+            }
+            tableRow.Append(cell);
+        }
+        table.Append(tableRow);
     }
 
     private sealed record SelectedWorksheet(
