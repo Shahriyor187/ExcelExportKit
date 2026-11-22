@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   publish:
@@ -25,15 +26,10 @@ jobs:
             8.0.x
             10.0.x
 
-      - name: Validate version and API key
+      - name: Validate release version
         env:
           RELEASE_VERSION: ${{ inputs.version }}
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          if [ -z "$NUGET_API_KEY" ]; then
-            echo "::error::Configure NUGET_API_KEY in the nuget-publishing environment secrets."
-            exit 1
-          fi
           python3 - <<'PY'
           import os, re, xml.etree.ElementTree as ET
           version=os.environ["RELEASE_VERSION"]
@@ -68,9 +64,15 @@ jobs:
           print("Validated package:",files[0])
           PY
 
+      - name: Exchange GitHub OIDC token for short-lived NuGet key
+        id: nuget_login
+        uses: NuGet/login@v1
+        with:
+          user: Shahriyor
+
       - name: Publish
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          NUGET_API_KEY: ${{ steps.nuget_login.outputs.NUGET_API_KEY }}
         run: |
           dotnet nuget push "artifacts/*.nupkg" \
             --api-key "$NUGET_API_KEY" \
