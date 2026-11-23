@@ -39,13 +39,13 @@ def render_folder(source: pathlib.Path, destination: pathlib.Path, dpi: int, req
             ["pdftotext", "-layout", str(pdf), "-"],
             check=True, text=True, capture_output=True,
         )
-        required = {
+        expected_text = {
             "merged-header": ["Q4 Sales Overview", "Tashkent", "Samarkand"],
             "vertical-merge": ["Foundation", "Amina", "Laylo"],
             "multi-page": ["Student 1", "Student 119"],
             "image-anchor": ["Student", "Amina", "Ali"],
         }[fixture]
-        missing = [item for item in required if item not in result.stdout]
+        missing = [item for item in expected_text if item not in result.stdout]
         if missing:
             raise RuntimeError(f"{fixture}: PDF text missing {missing}")
         summaries[fixture] = {
