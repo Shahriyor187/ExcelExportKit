@@ -1,9 +1,9 @@
 # ExcelExportKit v2 release readiness
 
-This checklist prepares the package for **v2.0.0**. It is not a declaration
-that v2 is shipped, and must not be used as evidence that NuGet contains the
-current master branch. The release-candidate branch declares `2.0.0-rc.1`; publishing is a
-separate manual action. The stable v2.0.0 package is not yet published.
+This checklist documents final review for the **v2.0.0** release branch. It is
+not a declaration that v2 has shipped and must not be used as evidence that
+NuGet contains this release branch. The stable package version is staged here,
+but the stable v2.0.0 package has **not** been published.
 
 ## Shipping gates
 
@@ -24,21 +24,33 @@ separate manual action. The stable v2.0.0 package is not yet published.
       review elapsed time and per-format process peak working set.
       All three runs passed on 2026-11-23.
       The 100K scenario benchmarks CSV/JSON only (not PDF/Word).
-- [ ] Validate at least one representative real-world workbook with permission,
-      locally using the release probe below. Do not commit the workbook or
-      converted outputs. Only sanitized diagnostic metadata may be shared.
+- [x] Smoke-test an independently published, non-private real-world Excel
+      workbook with the local release probe: UK ONS
+      `summaryofrecords2026q3fqe.xlsx` on Windows .NET 10.0.15.
+      CSV/JSON/PDF/DOCX structural conversions succeeded (2026-11-23).
+      The local probe selected the first worksheet by default, validates basic
+      output structure, not all workbook sheets or per-cell fidelity. Workbook
+      content and converted outputs were not committed.
 - [x] Add a synthetic production-like multi-sheet invoice integration test
       spanning CSV, typed JSON, styled PDF and DOCX with Unicode, numeric and
       Boolean fields. This supplements but does not replace the real-workbook gate.
-- [ ] Review security/zip-input limits for server usage and make sure upstream
-      upload limits, request timeouts, concurrency controls, and storage quotas
-      are enforced by the hosting application.
-- [ ] Inspect any new security advisories and known limitations for ClosedXML,
-      OpenXML SDK and TerraPDF. No automated vulnerability audit is a substitute.
-- [ ] Review public API compatibility and confirm the intended major version.
+- [ ] Verify the consuming server's upload limits, request timeouts,
+      concurrency controls, process isolation, and storage quotas. The library
+      only provides opt-in XLSX preflight limits; it cannot enforce hosting
+      safeguards inside an unknown consuming application.
+- [ ] Manually inspect current advisories, licenses and known limitations for
+      ClosedXML, OpenXML SDK and TerraPDF before production publication. CI's
+      automated direct/transitive vulnerability audit passed for the previous
+      release-candidate commit, but cannot replace this review.
+- [ ] Final manual review of public API compatibility and upgrade semantics,
+      including two-argument CSV behavior versus options-based defaults. The
+      intended package release remains major version 2.0.0.
 - [x] Prepare the `2.0.0-rc.1` candidate version, leaving NuGet publishing disabled.
-- [ ] After release review, switch to stable `2.0.0` and revalidate on its exact commit.
-- [ ] Update CHANGELOG.md release date and replace this pending checklist.
+- [x] Stage stable `2.0.0` metadata and changelog in a separate branch,
+      **without** publishing; run CI and visual validation on the exact commit
+      before merge or release approval.
+- [x] Draft the 2026-11-23 CHANGELOG.md v2.0.0 release notes;
+      publication remains pending.
 - [ ] Build the candidate .nupkg/.snupkg, inspect README, license, both DLLs
       and package version. Test clean .NET 8 and .NET 10 consumers against the
       **locally built candidate** (with a package-source mapping that prevents
@@ -100,6 +112,33 @@ and print-section order but found layout differences, including scaling and
 pagination. Approximate Excel printing remains an explicitly documented
 limitation for stable v2.
 
+## 2026-11-23 real-world smoke-test evidence
+
+A user downloaded the public UK Office for National Statistics workbook
+`summaryofrecords2026q3fqe.xlsx` and ran
+`ExcelExportKit.ReleaseProbe` locally on Windows with .NET 10.0.15.
+Only the sanitized JSON report was shared, not the workbook or converted outputs.
+
+| Format | Result | Elapsed time | Output bytes |
+| --- | --- | ---: | ---: |
+| CSV | Passed | 1807.8 ms | 2449 |
+| JSON | Passed | 266.8 ms | 4133 |
+| PDF | Passed | 389.4 ms | 4455 |
+| DOCX | Passed | 347.6 ms | 2259 |
+
+The report recorded `overallSuccess=true` and a **cumulative process** peak
+of 98,078,720 bytes (~93.5 MiB). Those timings are not independent-process
+benchmarks; CSV includes possible startup/first-conversion costs.
+
+The probe's default worksheet selection was used: this test does **not**
+verify every worksheet, data value, formula, visual element, or PDF parity
+with Excel. The original file stays off GitHub. A validated production
+deployment still needs application-specific limits and manual API review.
+
+**Runtime lifecycle:** The package may retain `net8.0` compatibility, but
+the .NET 8 runtime reached Microsoft's support end on 2026-11-10. Prefer
+`net10.0` and a supported runtime for new production deployments.
+
 ## Opt-in safeguards for untrusted XLSX
 
 The package now exposes four nullable limits on \`ExcelConversionOptions\`:
@@ -160,8 +199,9 @@ Runs: [1K](https://github.com/Shahriyor187/ExcelExportKit/actions/runs/451460583
 [100K](https://github.com/Shahriyor187/ExcelExportKit/actions/runs/45146702987).
 These measurements cannot be compared directly with the older cold,
 single-process figures or generalized to arbitrary documents, production
-concurrency, or hardware. A representative real-world workbook validation remains outstanding.
-Independent synthetic Excel PDF comparisons have been reviewed and documented.
+concurrency, or hardware. The UK ONS real-world sample has now passed local, first-sheet structural
+conversion checks. This does not establish comprehensive fidelity. Independent
+synthetic Excel PDF comparisons have also been reviewed and documented.
 
 ## Updated measurement protocol (post-baseline)
 
