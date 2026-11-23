@@ -14,12 +14,14 @@ from PIL import Image, ImageChops
 FIXTURES = ("merged-header", "vertical-merge", "multi-page", "image-anchor")
 
 
-def render_folder(source: pathlib.Path, destination: pathlib.Path, dpi: int) -> dict:
+def render_folder(source: pathlib.Path, destination: pathlib.Path, dpi: int, required: bool = True) -> dict:
     destination.mkdir(parents=True, exist_ok=True)
     summaries = {}
     for fixture in FIXTURES:
         pdf = source / (fixture + ".pdf")
         if not pdf.is_file():
+            if not required:
+                continue  # Newly introduced fixtures are absent from older baselines.
             raise FileNotFoundError(pdf)
         prefix = destination / fixture
         subprocess.run(
@@ -108,7 +110,7 @@ def main() -> None:
         "baselineAvailable": bool(args.baseline),
     }
     if args.baseline:
-        baseline = render_folder(args.baseline, args.output / "baseline", args.dpi)
+        baseline = render_folder(args.baseline, args.output / "baseline", args.dpi, required=False)
         results["baseline"] = baseline
         results["comparison"] = compare(
             args.output / "baseline",
