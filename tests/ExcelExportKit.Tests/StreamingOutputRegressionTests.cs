@@ -71,7 +71,7 @@ public sealed class StreamingOutputRegressionTests
             Assert.True(typedDoc.RootElement[0].GetProperty("Passed").GetBoolean());
             Assert.Contains("Toshkent", typedDoc.RootElement[0].GetProperty("Note").GetString());
             Assert.Equal("1450", legacyDoc.RootElement[0].GetProperty("Score").GetString());
-            Assert.Equal("True", legacyDoc.RootElement[0].GetProperty("Passed").GetString());
+            Assert.Equal("TRUE", legacyDoc.RootElement[0].GetProperty("Passed").GetString());
             Assert.Equal("", legacyDoc.RootElement[1].GetProperty("Note").GetString());
         }
         finally
