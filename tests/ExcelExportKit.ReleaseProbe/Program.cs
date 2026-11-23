@@ -102,7 +102,7 @@ try
             if (format == "pdf")
             {
                 using var stream = File.OpenRead(output);
-                Span<byte> signature = stackalloc byte[5];
+                var signature = new byte[5];
                 if (stream.Read(signature) != 5 || System.Text.Encoding.ASCII.GetString(signature) != "%PDF-")
                     throw new InvalidDataException("Invalid PDF output.");
             }
