@@ -1,15 +1,17 @@
 # ExcelExportKit v2 release readiness
 
-This checklist prepares the package for **v2.0.0**. It is not a declaration
-that v2 is shipped, and must not be used as evidence that NuGet contains the
-current master branch. The release-candidate branch declares `2.0.0-rc.1`; publishing is a
-separate manual action. The stable v2.0.0 package is not yet published.
+This checklist documents final review for the **v2.0.0** release branch. It is
+not a declaration that v2 has shipped and must not be used as evidence that
+NuGet contains this release branch. The stable package version is staged here,
+but the stable v2.0.0 package has **not** been published.
 
 ## Shipping gates
 
-- [ ] All .NET 8 and .NET 10 unit/integration tests pass on the release commit.
-- [ ] The PDF visual comparison workflow passes on the release commit; manually
-      review differences, because pixel changes intentionally do not fail CI.
+- [x] All .NET 8 and .NET 10 tests passed on the staged 2.0.0 candidate
+      (44 per framework, CI run 45183944664). Repeat on the final merge SHA.
+- [x] The PDF visual regression workflow passed on the staged 2.0.0 candidate
+      (run 45183944896). Existing independent Excel LTSC visual differences
+      have been reviewed. Repeat on the final merge SHA.
 - [x] Review independent Excel LTSC reference PDFs for four existing visual
       fixtures (merged cells, images, multi-page report). All expected labels
       and all 119 report records match, while pagination differs. See
@@ -24,44 +26,108 @@ separate manual action. The stable v2.0.0 package is not yet published.
       review elapsed time and per-format process peak working set.
       All three runs passed on 2026-11-23.
       The 100K scenario benchmarks CSV/JSON only (not PDF/Word).
-- [ ] Validate at least one representative real-world workbook with permission,
-      locally using the release probe below. Do not commit the workbook or
-      converted outputs. Only sanitized diagnostic metadata may be shared.
+- [x] Smoke-test an independently published, non-private real-world Excel
+      workbook with the local release probe: UK ONS
+      `summaryofrecords2026q3fqe.xlsx` on Windows .NET 10.0.15.
+      CSV/JSON/PDF/DOCX structural conversions succeeded (2026-11-23).
+      The local probe selected the first worksheet by default, validates basic
+      output structure, not all workbook sheets or per-cell fidelity. Workbook
+      content and converted outputs were not committed.
 - [x] Add a synthetic production-like multi-sheet invoice integration test
       spanning CSV, typed JSON, styled PDF and DOCX with Unicode, numeric and
       Boolean fields. This supplements but does not replace the real-workbook gate.
-- [ ] Review security/zip-input limits for server usage and make sure upstream
-      upload limits, request timeouts, concurrency controls, and storage quotas
-      are enforced by the hosting application.
-- [ ] Inspect any new security advisories and known limitations for ClosedXML,
-      OpenXML SDK and TerraPDF. No automated vulnerability audit is a substitute.
-- [ ] Review public API compatibility and confirm the intended major version.
+- [ ] Verify the consuming server's upload limits, request timeouts,
+      concurrency controls, process isolation, and storage quotas. The library
+      only provides opt-in XLSX preflight limits; it cannot enforce hosting
+      safeguards inside an unknown consuming application.
+- [x] Reviewed package metadata and published NuGet package listings for
+      ClosedXML 0.105.1, DocumentFormat.OpenXml 3.5.1, and TerraPDF 2.4.0:
+      all three list MIT licensing. Automated direct/transitive audit on
+      staged 2.0.0 source checked 18 package entries with no reported
+      advisories (run 45183944664). This is a point-in-time check, not proof
+      that a dependency is vulnerability-free; recheck before future releases.
+- [x] Reviewed public API shape and versioning intent. Major version 2.0.0
+      retains legacy two-argument methods and adds opt-in options. Note:
+      two-argument ToCSVAsync leaves CsvProtectFormulas disabled for legacy
+      compatibility while options-based calls default to protection.
+      CSV/JSON/PDF/DOCX options, including resource limits, are opt-in.
+      Library is a conversion component, not a hosted web service.
 - [x] Prepare the `2.0.0-rc.1` candidate version, leaving NuGet publishing disabled.
-- [ ] After release review, switch to stable `2.0.0` and revalidate on its exact commit.
-- [ ] Update CHANGELOG.md release date and replace this pending checklist.
-- [ ] Build the candidate .nupkg/.snupkg, inspect README, license, both DLLs
-      and package version. Test clean .NET 8 and .NET 10 consumers against the
-      **locally built candidate** (with a package-source mapping that prevents
-      silent fallback to a public version).
-- [ ] Complete direct/transitive NuGet advisory checks, reviewing any findings
-      or audit-feed access failures before release.
+- [x] Stage stable `2.0.0` metadata and changelog in a separate branch,
+      **without** publishing; run CI and visual validation on the exact commit
+      before merge or release approval.
+- [x] Draft the 2026-11-23 CHANGELOG.md v2.0.0 release notes;
+      publication remains pending.
+- [x] Independently downloaded and inspected GitHub Actions candidate
+      artifact from run 45183944664: ExcelExportKit.2.0.0.nupkg and
+      ExcelExportKit.2.0.0.snupkg, package ID/version, MIT license,
+      README, net8.0/net10.0 DLLs and PDBs all present; locally built
+      package consumer smoke tests passed on both frameworks. After this
+      review, README and publishing guard were improved: final branch
+      CI/package review must pass before release.
+- [x] CI package audit completed successfully on candidate source
+      (run 45183944664): 18 resolved entries checked, no reported
+      advisories. Any future audit-feed errors remain release blockers.
 - [ ] Obtain explicit approval to publish stable v2.0.0 to NuGet.org, then
       trigger the guarded manual trusted-publishing workflow from the reviewed
       stable release commit and verify the public NuGet listing.
 - [ ] Create a GitHub tag/release after publication and publish release notes.
 
+## Hosting and upstream security review
+
+The converter is a library and no consuming ASP.NET application was included
+in this release audit. The four `ExcelConversionOptions` input limits help
+reject oversized XLSX inputs, but they are **not** default limits. The
+library cannot enforce HTTP upload size, authentication, tenant quotas, worker
+process isolation, CPU timeouts, per-request deadlines or conversion
+concurrency in an unknown consumer. Those are deployment responsibilities,
+not library shipping claims. Hosted-service deployment is **not** verified by
+this release review. Recommend external process/container isolation and
+bounded concurrency for untrusted public uploads, alongside log redaction.
+
+The two-argument CSV export retains its legacy formula behavior; for
+untrusted spreadsheet contents use an options-based call with
+`CsvProtectFormulas = true` and the preflight limits enabled. Do not present
+v2 as a general-purpose XLSX malware scanner, chart renderer or Excel
+pixel-perfect print engine.
+
+## Dependency metadata and artifact inspection
+
+Official NuGet package pages inspected (2026-11-23):
+
+- ClosedXML 0.105.1: https://www.nuget.org/packages/ClosedXML/0.105.1
+- DocumentFormat.OpenXml 3.5.1: https://www.nuget.org/packages/DocumentFormat.OpenXml/3.5.1
+- TerraPDF 2.4.0: https://www.nuget.org/packages/TerraPDF/2.4.0
+
+The package pages list MIT licenses. GitHub CI run 45183944664
+checked 18 resolved direct/transitive dependencies and reported
+no advisories. This cannot rule out undisclosed vulnerabilities.
+
+The verified GitHub Actions ZIP contained:
+`ExcelExportKit.2.0.0.nupkg` (82,529 bytes) and
+`ExcelExportKit.2.0.0.snupkg` (32,955 bytes).
+SHA-256 checksums of the two files from that pre-final build:
+
+- nupkg: `53a92464b24b254929d77c2603bf4622e5dd679dbbe725c30fdd91b8d96e477e`
+- snupkg: `1ca7b96270a6c655c2a8c296fc145aa299a3ebf4f60189baf2aac5bebfe990d8`
+
+Those hashes identify only the **earlier reviewed candidate artifact**;
+changes to README or the publishing workflow will produce a different
+final package/commit. The final package must be inspected again.
+
 ## Release-candidate procedure
 
 1. CI must pass on the candidate branch: .NET 8/10 tests, package audit,
    local NuGet consumer installations and PDF visual regression.
-2. Inspect the generated `ExcelExportKit.2.0.0-rc.1.nupkg` and `.snupkg`
-   artifacts from Actions; this is verification, **not** publication.
+2. Inspect the generated `ExcelExportKit.2.0.0.nupkg` and matching `.snupkg`
+   artifacts from the final 2.0.0 Actions run. This is verification, **not** publication.
 3. Export the same visual-fixture `.xlsx` workbooks independently using
    Microsoft Excel to PDFs, record Excel version, print settings and fonts,
    and review rendered image differences against the library output.
 4. Verify representative real-world workbooks and server-side resource limits.
-5. Only after all gates and explicit release approval, create a separate
-   stable-version change and execute the protected NuGet publishing workflow.
+5. Stage stable 2.0.0 in a reviewed PR, verify CI and PDF checks on the
+   merged master SHA, then obtain explicit release approval before manually
+   executing the protected NuGet publishing workflow.
 
 The publishing workflow requests the exact version and a `PUBLISH`
 confirmation; it is **manual**. A passed CI workflow is not authorization
@@ -99,6 +165,33 @@ The 2026-11-23 Excel LTSC comparisons confirmed synthetic fixture content
 and print-section order but found layout differences, including scaling and
 pagination. Approximate Excel printing remains an explicitly documented
 limitation for stable v2.
+
+## 2026-11-23 real-world smoke-test evidence
+
+A user downloaded the public UK Office for National Statistics workbook
+`summaryofrecords2026q3fqe.xlsx` and ran
+`ExcelExportKit.ReleaseProbe` locally on Windows with .NET 10.0.15.
+Only the sanitized JSON report was shared, not the workbook or converted outputs.
+
+| Format | Result | Elapsed time | Output bytes |
+| --- | --- | ---: | ---: |
+| CSV | Passed | 1807.8 ms | 2449 |
+| JSON | Passed | 266.8 ms | 4133 |
+| PDF | Passed | 389.4 ms | 4455 |
+| DOCX | Passed | 347.6 ms | 2259 |
+
+The report recorded `overallSuccess=true` and a **cumulative process** peak
+of 98,078,720 bytes (~93.5 MiB). Those timings are not independent-process
+benchmarks; CSV includes possible startup/first-conversion costs.
+
+The probe's default worksheet selection was used: this test does **not**
+verify every worksheet, data value, formula, visual element, or PDF parity
+with Excel. The original file stays off GitHub. A validated production
+deployment still needs application-specific limits and manual API review.
+
+**Runtime lifecycle:** The package may retain `net8.0` compatibility, but
+the .NET 8 runtime reached Microsoft's support end on 2026-11-10. Prefer
+`net10.0` and a supported runtime for new production deployments.
 
 ## Opt-in safeguards for untrusted XLSX
 
@@ -160,8 +253,9 @@ Runs: [1K](https://github.com/Shahriyor187/ExcelExportKit/actions/runs/451460583
 [100K](https://github.com/Shahriyor187/ExcelExportKit/actions/runs/45146702987).
 These measurements cannot be compared directly with the older cold,
 single-process figures or generalized to arbitrary documents, production
-concurrency, or hardware. A representative real-world workbook validation remains outstanding.
-Independent synthetic Excel PDF comparisons have been reviewed and documented.
+concurrency, or hardware. The UK ONS real-world sample has now passed local, first-sheet structural
+conversion checks. This does not establish comprehensive fidelity. Independent
+synthetic Excel PDF comparisons have also been reviewed and documented.
 
 ## Updated measurement protocol (post-baseline)
 
