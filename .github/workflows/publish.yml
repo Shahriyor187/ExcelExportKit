@@ -6,7 +6,11 @@ on:
       version:
         description: "NuGet version to publish (must match .csproj Version)"
         required: true
-        default: "1.2.0"
+        default: "2.0.0"
+      confirmation:
+        description: "Type PUBLISH to confirm the irreversible NuGet publication"
+        required: true
+        default: ""
 
 permissions:
   contents: read
@@ -25,6 +29,15 @@ jobs:
           dotnet-version: |
             8.0.x
             10.0.x
+
+      - name: Validate explicit publishing approval
+        env:
+          RELEASE_CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          if [ "$RELEASE_CONFIRMATION" != "PUBLISH" ]; then
+            echo "Publishing requires typing PUBLISH into the confirmation field."
+            exit 1
+          fi
 
       - name: Validate release version
         env:
@@ -47,8 +60,19 @@ jobs:
           dotnet restore tests/ExcelExportKit.Tests/ExcelExportKit.Tests.csproj
           dotnet test tests/ExcelExportKit.Tests/ExcelExportKit.Tests.csproj -c Release --no-restore
 
+      - name: Audit NuGet packages
+        run: |
+          dotnet list ExcelExportKit.csproj package --vulnerable --include-transitive \
+            --format json --output-version 1 --no-restore > nuget-audit.json
+          dotnet list ExcelExportKit.csproj package --include-transitive \
+            --format json --output-version 1 --no-restore > nuget-inventory.json
+          python3 .github/scripts/check-nuget-audit.py nuget-audit.json nuget-inventory.json
+
       - name: Pack
         run: dotnet pack ExcelExportKit.csproj -c Release --output ./artifacts
+
+      - name: Smoke-test packed candidate on .NET 8 and .NET 10
+        run: bash .github/scripts/test-local-package.sh
 
       - name: Verify package contents
         run: |
