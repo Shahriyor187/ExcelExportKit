@@ -23,6 +23,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Require master branch and official repository
+        env:
+          RELEASE_REF: ${{ github.ref }}
+          RELEASE_REPO: ${{ github.repository }}
+        run: |
+          if [ "$RELEASE_REF" != "refs/heads/master" ] || [ "$RELEASE_REPO" != "Shahriyor187/ExcelExportKit" ]; then
+            echo "NuGet publishing is permitted only from master in the official repository."
+            exit 1
+          fi
+
       - name: Set up .NET 8 and 10
         uses: actions/setup-dotnet@v4
         with:
