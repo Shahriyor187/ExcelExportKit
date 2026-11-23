@@ -83,7 +83,26 @@ await RenderFixture("multi-page", book =>
     }
 });
 
-Console.WriteLine("Created three XLSX/PDF fixture pairs in " + outputDirectory);
+await RenderFixture("image-anchor", book =>
+{
+    var sheet = book.AddWorksheet("Student Cards");
+    sheet.Cell("A1").Value = "Student";
+    sheet.Cell("B1").Value = "Image";
+    sheet.Cell("A2").Value = "Amina";
+    sheet.Cell("A3").Value = "Ali";
+    sheet.Column(1).Width = 24;
+    sheet.Column(2).Width = 25;
+    sheet.Row(2).Height = 60;
+    sheet.Range("A1:B1").Style.Fill.BackgroundColor = XLColor.FromHtml("#25466A");
+    sheet.Range("A1:B1").Style.Font.FontColor = XLColor.White;
+
+    var tinyPng = Convert.FromBase64String(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/x4sAAAAASUVORK5CYII=");
+    using var png = new MemoryStream(tinyPng);
+    sheet.AddPicture(png, ClosedXML.Excel.Drawings.XLPictureFormat.Png).MoveTo(sheet.Cell("B2"));
+});
+
+Console.WriteLine("Created four XLSX/PDF fixture pairs in " + outputDirectory);
 return 0;
 
 async Task RenderFixture(string name, Action<XLWorkbook> create)
@@ -99,6 +118,7 @@ async Task RenderFixture(string name, Action<XLWorkbook> create)
     {
         DocumentTitle = "Visual fixture: " + name,
         PdfPreserveCellFormatting = true,
+        PdfIncludeEmbeddedImages = name == "image-anchor",
         PdfLandscape = name == "merged-header"
     });
     var signature = new byte[5];

@@ -21,6 +21,32 @@ await ExcelConverter.ToPDFAsync("report.xlsx", "report.pdf",
 
 The formatting-aware PDF renderer now supports **fully selected horizontal and vertical merged cells**, solid per-edge borders, approximate Excel row heights, font sizes, colors and basic alignment. Merges crossing a selected range or from the repeated header into data are explicitly rejected. Dashed/double border styles are approximated with solid strokes. It still does **not** reproduce embedded images/charts, exact print areas, manual page breaks, or pixel-perfect Excel pagination.
 
+## Embed cell-anchored PNG/JPEG images in styled PDFs
+
+Set `PdfIncludeEmbeddedImages = true` alongside `PdfPreserveCellFormatting = true`
+to include a bounded number of PNG/JPEG drawings anchored at cell origins.
+Images appear **inside the corresponding PDF table cells**, below the
+cell's text, not at their original floating Excel coordinates.
+
+```csharp
+await ExcelConverter.ToPDFAsync("report.xlsx", "report.pdf",
+    new ExcelConversionOptions
+    {
+        PdfPreserveCellFormatting = true,
+        PdfIncludeEmbeddedImages = true,
+        PdfMaxEmbeddedImages = 16,
+        PdfMaxEmbeddedImageBytes = 2 * 1024 * 1024
+    });
+```
+
+The default is **off**, preserving existing output. Images must be PNG/JPEG,
+cell-anchored, no larger than 4,096 pixels per side, no larger than the
+configured per-image byte limit, and within the selected range. Unsupported
+floating pictures, offsets, merged-cell overlaps, multiple images per cell
+and outside-range pictures produce explicit errors instead of being silently
+ignored. Free-floating/pixel-perfect Excel graphics, charts, SVGs and
+text-wrapped positioning are not yet supported.
+
 ## PDF visual regression checks
 
 The repository has a dedicated [PDF visual regression workflow](.github/workflows/pdf-visual.yml) that creates three reproducible spreadsheet/PDF pairs:
