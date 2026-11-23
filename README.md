@@ -6,6 +6,38 @@
 
 A .NET library for converting Excel worksheets (`.xlsx`) to **CSV, JSON, PDF, or Word (DOCX)**, including worksheet selection and batch exports.
 
+## Try Export Studio — interactive demo
+
+**Want to see real output before integrating a package?** Run the [Export Studio demo](examples/ExportStudio/README.md), a responsive local ASP.NET Core application using both **ExcelExportKit 2.0.0** and **DataExport 2.0.0** from NuGet.
+
+```powershell
+dotnet run --project examples/ExportStudio/ExportStudio.csproj --urls http://localhost:5075
+```
+
+Open [http://localhost:5075](http://localhost:5075) to try CSV, JSON, XML, XLSX, styled PDF and DOCX downloads. No keys, accounts, upload endpoints or external services are required.
+
+<details>
+<summary>Copyable example: Excel worksheet → styled PDF</summary>
+
+```csharp
+using ExportFiles.Services;
+
+await ExcelConverter.ToPDFAsync("sales.xlsx", "sales.pdf",
+    new ExcelConversionOptions
+    {
+        PdfLandscape = true,
+        PdfPreserveCellFormatting = true,
+        MaxWorkbookFileBytes = 4 * 1024 * 1024,
+        MaxUncompressedWorkbookBytes = 16 * 1024 * 1024,
+        MaxWorkbookArchiveEntries = 256,
+        MaxSelectedCells = 2000
+    });
+```
+
+</details>
+
+
+
 > **Versioning:** Install **ExcelExportKit 2.0.0 or newer** to use the v2 features described below. The GitHub source branch and the latest version actually available on NuGet.org can differ; check the installed package version rather than assuming a source branch is already published.
 > **Runtime support:** The package still targets both `net8.0` and `net10.0` for compatibility. Microsoft .NET 8 runtime support ended on November 10, 2026. Prefer a supported .NET 10 runtime for production and review the hosting application's own lifecycle and security controls.
 
