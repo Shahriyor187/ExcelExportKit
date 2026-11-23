@@ -14,8 +14,9 @@ version at 1.2.0; changing it and publishing are separate release steps.
       merged cells, print-layout, images and multi-page reports; record test system
       fonts, Excel version and print settings. Compare using
       \`--excel-reference\` and review the diff images.
-- [ ] Run the manual benchmark workflow at 1K, 10K and 100K rows; save JSON
-      reports and examine wall time, peak working set, and output sizes.
+- [x] Run the isolated benchmark workflow at 1K, 10K and 100K rows,
+      review elapsed time and per-format process peak working set.
+      All three runs passed on 2026-11-23.
       The 100K scenario benchmarks CSV/JSON only (not PDF/Word).
 - [ ] Benchmark at least one actual customer workbook with permission, using
       no secret or personal data in CI artifacts.
@@ -69,6 +70,34 @@ await ExcelConverter.ToPDFAsync("uploaded.xlsx", "report.pdf", options);
 Use options-based conversions to enable these limits. The legacy two-argument
 and existing multi-file/all-sheets helpers are unchanged and do not expose
 the safety-limit options.
+
+## Validated isolated benchmark results (2026-11-23)
+
+Each result is the median of three warmed-up, isolated conversions on a GitHub-hosted
+.NET 10 runner, using a synthetic six-column XLSX. Peak resident memory
+includes the worker's warmup, but not fixture generation or other formats.
+
+| Format | 1K median ms | 10K median ms | 100K median ms |
+| --- | ---: | ---: | ---: |
+| CSV | 170.06 | 641.87 | 2044.29 |
+| JSON | 203.63 | 743.27 | 2480.57 |
+| PDF | 446.46 | 1125.34 | Not run |
+| DOCX | 247.01 | 931.16 | Not run |
+
+| Format | 1K peak RSS MiB | 10K peak RSS MiB | 100K peak RSS MiB |
+| --- | ---: | ---: | ---: |
+| CSV | 99.2 | 154.1 | 424.3 |
+| JSON | 103.1 | 156.4 | 414.4 |
+| PDF | 108.1 | 231.4 | Not run |
+| DOCX | 103.9 | 169.7 | Not run |
+
+Runs: [1K](https://github.com/Shahriyor187/ExcelExportKit/actions/runs/45146058345),
+[10K](https://github.com/Shahriyor187/ExcelExportKit/actions/runs/45146513792),
+[100K](https://github.com/Shahriyor187/ExcelExportKit/actions/runs/45146702987).
+These measurements cannot be compared directly with the older cold,
+single-process figures or generalized to arbitrary documents, production
+concurrency, or hardware. A real workbook and independent Excel PDF
+references remain outstanding.
 
 ## Updated measurement protocol (post-baseline)
 
