@@ -92,6 +92,13 @@ try
             if (!file.Exists || file.Length == 0)
                 throw new InvalidDataException("Missing or empty output.");
             outputBytes = file.Length;
+            if (format == "json")
+            {
+                await using var jsonFile = File.OpenRead(output);
+                using var jsonDocument = await JsonDocument.ParseAsync(jsonFile);
+                if (jsonDocument.RootElement.ValueKind != JsonValueKind.Array)
+                    throw new InvalidDataException("Invalid JSON array output.");
+            }
             if (format == "pdf")
             {
                 using var stream = File.OpenRead(output);
@@ -101,10 +108,9 @@ try
             }
             if (format == "docx")
             {
-                using var stream = File.OpenRead(output);
-                Span<byte> signature = stackalloc byte[2];
-                if (stream.Read(signature) != 2 || signature[0] != 0x50 || signature[1] != 0x4B)
-                    throw new InvalidDataException("Invalid DOCX output.");
+                using var archive = System.IO.Compression.ZipFile.OpenRead(output);
+                if (!archive.Entries.Any(entry => entry.FullName == "word/document.xml"))
+                    throw new InvalidDataException("Invalid DOCX document package.");
             }
         }
         catch (Exception ex)
