@@ -49,6 +49,8 @@ public static partial class ExcelConverter
     public static Task ToPDFAsync(string inputFile, string outputFile, ExcelConversionOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
+        if (options.PdfUseWorksheetPrintSettings)
+            return WriteWorksheetPrintPdfAsync(inputFile, outputFile, options);
         if (options.PdfIncludeEmbeddedImages && !options.PdfPreserveCellFormatting)
             throw new ArgumentException(
                 "PdfIncludeEmbeddedImages requires PdfPreserveCellFormatting.", nameof(options));

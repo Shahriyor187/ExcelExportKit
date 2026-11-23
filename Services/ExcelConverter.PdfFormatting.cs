@@ -210,11 +210,6 @@ public static partial class ExcelConverter
             var count = 0;
             foreach (var picture in worksheet.Pictures)
             {
-                count++;
-                if (count > options.PdfMaxEmbeddedImages)
-                    throw new InvalidDataException(
-                        $"Workbook contains more than {options.PdfMaxEmbeddedImages} pictures.");
-
                 // Free-floating pictures have no meaningful cell anchor.
                 if (picture.Placement.ToString() == "FreeFloating")
                     throw new NotSupportedException(
@@ -223,8 +218,16 @@ public static partial class ExcelConverter
                 var row = anchorCell.Address.RowNumber;
                 var col = anchorCell.Address.ColumnNumber;
                 if (row < firstRow || row > lastRow || col < firstCol || col > lastCol)
+                {
+                    if (options.PdfIgnoreImagesOutsideSelectedRange)
+                        continue;
                     throw new NotSupportedException(
                         $"Picture '{picture.Name}' is outside the selected PDF cell range.");
+                }
+                count++;
+                if (count > options.PdfMaxEmbeddedImages)
+                    throw new InvalidDataException(
+                        $"Selected PDF range contains more than {options.PdfMaxEmbeddedImages} pictures.");
                 if (occupied.Contains((row, col)) || anchors.ContainsKey((row, col)))
                     throw new NotSupportedException(
                         $"Picture '{picture.Name}' overlaps a merged cell, which is not supported.");
@@ -370,5 +373,6 @@ public static partial class ExcelConverter
     internal sealed record PdfFormattingSnapshot(
         IReadOnlyList<double> ColumnWidths,
         PdfStyledRow Header,
-        IReadOnlyList<PdfStyledRow> Rows);
+        IReadOnlyList<PdfStyledRow> Rows,
+        IReadOnlyList<PdfStyledRow>? AdditionalHeaders = null);
 }

@@ -47,6 +47,36 @@ and outside-range pictures produce explicit errors instead of being silently
 ignored. Free-floating/pixel-perfect Excel graphics, charts, SVGs and
 text-wrapped positioning are not yet supported.
 
+## Worksheet print layout in PDF (opt-in)
+
+Set `PdfUseWorksheetPrintSettings = true` together with
+`PdfPreserveCellFormatting = true` to honor supported worksheet print
+settings during PDF export:
+
+- One or more rectangular Excel print areas (each rendered separately)
+- A4 portrait or landscape orientation and page margins
+- Workbook print scale (10–400%) or an optional explicit PDF scale override
+- Repeated print title rows, including headings above the selected print area
+- Manual horizontal and vertical page breaks, splitting sections onto separate pages
+
+```csharp
+await ExcelConverter.ToPDFAsync("report.xlsx", "report.pdf",
+    new ExcelConversionOptions
+    {
+        PdfPreserveCellFormatting = true,
+        PdfUseWorksheetPrintSettings = true,
+        PdfPrintScalePercent = 85
+    });
+```
+
+This feature **does not reproduce the Microsoft Excel print engine**:
+automatic table pagination can still add pages beyond manual breaks;
+fit-to-N-pages, arbitrary paper sizes,
+repeated title columns, print-centered placement, Excel header/footer text,
+and exact page-boundary fidelity are not supported. Manual breaks crossing
+merged cells are rejected. Unsupported ranges fail rather than silently
+breaking merged-cell layout. Existing PDF output is unchanged unless opted in.
+
 ## PDF visual regression checks
 
 The repository has a dedicated [PDF visual regression workflow](.github/workflows/pdf-visual.yml) that creates four reproducible spreadsheet/PDF pairs:
