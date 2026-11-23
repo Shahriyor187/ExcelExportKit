@@ -18,11 +18,20 @@ public static partial class ExcelConverter
         ArgumentNullException.ThrowIfNull(options);
         ValidateCsvDelimiter(options.CsvDelimiter);
         var sheet = ReadWorksheet(inputFile, options);
-        var output = new StringBuilder();
-        AppendSelectedCsvRow(output, sheet.Headers.Select(heading => SafeCsvValue(heading, options.CsvProtectFormulas)), options.CsvDelimiter);
+        // Keep only one CSV row in the output buffer instead of duplicating the
+        // entire workbook as a single StringBuilder in memory.
+        await using var writer = new StreamWriter(outputFile, false, Utf8WithoutBom);
+        var buffer = new StringBuilder();
+        AppendSelectedCsvRow(buffer, sheet.Headers.Select(
+            heading => SafeCsvValue(heading, options.CsvProtectFormulas)), options.CsvDelimiter);
+        await writer.WriteAsync(buffer.ToString()).ConfigureAwait(false);
         foreach (var row in sheet.Rows)
-            AppendSelectedCsvRow(output, row.Select(value => SafeCsvValue(value, options.CsvProtectFormulas)), options.CsvDelimiter);
-        await File.WriteAllTextAsync(outputFile, output.ToString(), Utf8WithoutBom).ConfigureAwait(false);
+        {
+            buffer.Clear();
+            AppendSelectedCsvRow(buffer, row.Select(
+                value => SafeCsvValue(value, options.CsvProtectFormulas)), options.CsvDelimiter);
+            await writer.WriteAsync(buffer.ToString()).ConfigureAwait(false);
+        }
     }
 
     /// <summary>Converts the selected worksheet to JSON with optional native numbers and booleans.</summary>
@@ -30,19 +39,38 @@ public static partial class ExcelConverter
     {
         ArgumentNullException.ThrowIfNull(options);
         var sheet = ReadWorksheet(inputFile, options);
-        var records = new List<Dictionary<string, object?>>();
-        IEnumerable<IReadOnlyList<object?>> dataRows = options.PreserveJsonTypes
-            ? sheet.TypedRows
-            : sheet.Rows.Select(r => (IReadOnlyList<object?>)r.Cast<object?>().ToList());
-        foreach (var row in dataRows)
+        // Stream JSON records directly to the file: avoid a second list of
+        // dictionaries plus a full serialized JSON string.
+        await using var stream = new FileStream(
+            outputFile, FileMode.Create, FileAccess.Write, FileShare.None,
+            bufferSize: 64 * 1024, useAsync: true);
+        using var jsonWriter = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true });
+        jsonWriter.WriteStartArray();
+        if (options.PreserveJsonTypes)
         {
-            var record = new Dictionary<string, object?>(StringComparer.Ordinal);
-            for (var index = 0; index < sheet.Headers.Count; index++)
-                record[sheet.Headers[index]] = row[index];
-            records.Add(record);
+            foreach (var row in sheet.TypedRows)
+            {
+                jsonWriter.WriteStartObject();
+                for (var i = 0; i < sheet.Headers.Count; i++)
+                {
+                    jsonWriter.WritePropertyName(sheet.Headers[i]);
+                    JsonSerializer.Serialize(jsonWriter, row[i], JsonOptions);
+                }
+                jsonWriter.WriteEndObject();
+            }
         }
-        await File.WriteAllTextAsync(outputFile, JsonSerializer.Serialize(records, JsonOptions), Utf8WithoutBom)
-            .ConfigureAwait(false);
+        else
+        {
+            foreach (var row in sheet.Rows)
+            {
+                jsonWriter.WriteStartObject();
+                for (var i = 0; i < sheet.Headers.Count; i++)
+                    jsonWriter.WriteString(sheet.Headers[i], row[i]);
+                jsonWriter.WriteEndObject();
+            }
+        }
+        jsonWriter.WriteEndArray();
+        await jsonWriter.FlushAsync().ConfigureAwait(false);
     }
 
     /// <summary>Exports the selected worksheet as a paginated PDF with repeated table headers.</summary>
@@ -226,35 +254,42 @@ public static partial class ExcelConverter
             .ToList();
         var headers = MakeUniqueHeaders(rawHeaders);
         var displayRows = new List<IReadOnlyList<string>>();
-        var typedRows = new List<IReadOnlyList<object?>>();
+        // Only native JSON needs the second, typed representation. CSV, PDF,
+        // Word and default JSON should not allocate a duplicate cell matrix.
+        List<IReadOnlyList<object?>>? typedRows = options.PreserveJsonTypes
+            ? new List<IReadOnlyList<object?>>() : null;
 
         for (var row = firstRow + 1; row <= lastRow; row++)
         {
             var display = new List<string>();
-            var typed = new List<object?>();
+            List<object?>? typed = typedRows is null ? null : new List<object?>();
             for (var col = firstColumn; col <= lastColumn; col++)
             {
                 var cell = worksheet.Cell(row, col);
-                display.Add(cell.GetFormattedString(CultureInfo.InvariantCulture));
-                typed.Add(cell.DataType switch
-                {
-                    XLDataType.Number => cell.GetDouble(),
-                    XLDataType.Boolean => cell.GetBoolean(),
-                    XLDataType.DateTime => cell.GetDateTime(),
-                    XLDataType.TimeSpan => cell.GetTimeSpan().ToString(),
-                    XLDataType.Blank => null,
-                    _ => cell.GetFormattedString(CultureInfo.InvariantCulture)
-                });
+                var formatted = cell.GetFormattedString(CultureInfo.InvariantCulture);
+                display.Add(formatted);
+                if (typed is not null)
+                    typed.Add(cell.DataType switch
+                    {
+                        XLDataType.Number => cell.GetDouble(),
+                        XLDataType.Boolean => cell.GetBoolean(),
+                        XLDataType.DateTime => cell.GetDateTime(),
+                        XLDataType.TimeSpan => cell.GetTimeSpan().ToString(),
+                        XLDataType.Blank => null,
+                        _ => formatted
+                    });
             }
             if (options.SkipEmptyRows && display.All(string.IsNullOrWhiteSpace))
                 continue;
             displayRows.Add(display);
-            typedRows.Add(typed);
+            if (typed is not null)
+                typedRows!.Add(typed);
         }
 
         if (headers.Count == 0)
             throw new InvalidDataException("The worksheet has no columns.");
-        return new SelectedWorksheet(headers, displayRows, typedRows);
+        return new SelectedWorksheet(headers, displayRows,
+            typedRows ?? Array.Empty<IReadOnlyList<object?>>());
     }
 
     private static string SafeCsvValue(string input, bool protect)
