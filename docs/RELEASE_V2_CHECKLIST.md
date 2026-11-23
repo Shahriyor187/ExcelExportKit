@@ -10,10 +10,13 @@ separate manual action. The stable v2.0.0 package is not yet published.
 - [ ] All .NET 8 and .NET 10 unit/integration tests pass on the release commit.
 - [ ] The PDF visual comparison workflow passes on the release commit; manually
       review differences, because pixel changes intentionally do not fail CI.
-- [ ] Produce independent reference PDFs using Microsoft Excel for representative
-      merged cells, print-layout, images and multi-page reports; record test system
-      fonts, Excel version and print settings. Compare using
-      \`--excel-reference\` and review the diff images.
+- [x] Review independent Excel LTSC reference PDFs for four existing visual
+      fixtures (merged cells, images, multi-page report). All expected labels
+      and all 119 report records match, while pagination differs. See
+      [the reference review](EXCEL_REFERENCE_FIDELITY_REVIEW_2026-11-23.md).
+- [ ] Independently test the opt-in print-settings mode (print areas, margins,
+      scaling, repeated title rows and manual page breaks) against Excel.
+
 - [x] Run the isolated benchmark workflow at 1K, 10K and 100K rows,
       review elapsed time and per-format process peak working set.
       All three runs passed on 2026-11-23.
@@ -172,7 +175,6 @@ The GitHub Actions manual workflow uses the same program.
   for highly styled or complex worksheets.
 - Excel chart rendering, floating drawings, fit-to-page, and arbitrary paper
   sizes are not implemented.
-- Visual comparison against Microsoft Excel has optional tooling, but a curated
-  set of validated reference PDFs is not yet committed.
+- Four synthetic fixtures have now been reviewed against Microsoft Excel LTSC, but their independently generated PDFs are not committed to the repository. Advanced print-settings references still need review.
 - The benchmark infrastructure exists, but measured results require running
   the harness. Do not claim improvements without before/after measurements.
