@@ -56,7 +56,7 @@ settings during PDF export:
 - One or more rectangular Excel print areas (each rendered separately)
 - A4 portrait or landscape orientation and page margins
 - Workbook print scale (10–400%) or an optional explicit PDF scale override
-- One repeated print title row, including a title above the selected print area
+- Repeated print title rows, including headings above the selected print area
 - Manual horizontal and vertical page breaks, splitting sections onto separate pages
 
 ```csharp
@@ -71,7 +71,7 @@ await ExcelConverter.ToPDFAsync("report.xlsx", "report.pdf",
 
 This feature **does not reproduce the Microsoft Excel print engine**:
 automatic table pagination can still add pages beyond manual breaks;
-fit-to-N-pages, arbitrary paper sizes, multiple repeated title rows,
+fit-to-N-pages, arbitrary paper sizes,
 repeated title columns, print-centered placement, Excel header/footer text,
 and exact page-boundary fidelity are not supported. Manual breaks crossing
 merged cells are rejected. Unsupported ranges fail rather than silently
