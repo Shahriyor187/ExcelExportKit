@@ -11,12 +11,13 @@ import pathlib
 import subprocess
 from PIL import Image, ImageChops
 
-FIXTURES = ("merged-header", "vertical-merge", "multi-page", "image-anchor")
+FIXTURES = ("merged-header", "vertical-merge", "multi-page", "image-anchor", "print-layout")
 EXPECTED_TEXT = {
     "merged-header": ("Q4 Sales Overview", "Tashkent", "Samarkand"),
     "vertical-merge": ("Foundation", "Amina", "Laylo"),
     "multi-page": ("Student 1", "Student 119"),
     "image-anchor": ("Student", "Amina", "Ali"),
+    "print-layout": ("Item 1", "Item 32", "Print section"),
 }
 
 
