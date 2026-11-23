@@ -1,0 +1,57 @@
+name: Excel conversion benchmarks
+
+on:
+  workflow_dispatch:
+    inputs:
+      rows:
+        description: "Fixture rows (100000 can consume substantial memory/time)"
+        required: true
+        type: choice
+        options:
+          - "1000"
+          - "10000"
+          - "100000"
+        default: "1000"
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Generate workbook and measure conversions
+        run: |
+          dotnet run -c Release \
+            --project tests/ExcelExportKit.Benchmarks/ExcelExportKit.Benchmarks.csproj \
+            -- "${{ inputs.rows }}" "${{ runner.temp }}/benchmark-results"
+
+      - name: Show benchmark summary
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          data=json.loads((Path(os.environ["RUNNER_TEMP"])/"benchmark-results"/"benchmark.json").read_text())
+          lines=[f"## ExcelExportKit benchmark ({data['rows']:,} rows)",
+                 "", "| Operation | Elapsed ms | Output bytes |", "|---|---:|---:|"]
+          for row in data["steps"]:
+              lines.append(f"| {row['operation']} | {row['elapsedMs']} | {row['bytes']} |")
+          lines.extend(["", "Measurements are cold and machine-dependent; do not compare across runner types."])
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write("\n".join(lines)+"\n")
+          PY
+
+      - name: Upload performance report
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-${{ inputs.rows }}-rows
+          path: ${{ runner.temp }}/benchmark-results/benchmark.json
+          retention-days: 30
+          if-no-files-found: error
