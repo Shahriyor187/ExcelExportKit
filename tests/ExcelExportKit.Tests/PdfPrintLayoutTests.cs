@@ -70,9 +70,10 @@ public sealed class PdfPrintLayoutTests
     }
 
     [Fact]
-    public void RepeatsPrintTitleFromOutsideThePrintArea()
+    public async Task RepeatsPrintTitleFromOutsideThePrintArea()
     {
         var input = Temp(".xlsx");
+        var output = Temp(".pdf");
         try
         {
             using (var book = new XLWorkbook())
@@ -102,8 +103,19 @@ public sealed class PdfPrintLayoutTests
                 Assert.Equal("Report subheading", Assert.Single(p.AdditionalHeaders!).Cells[0].Text);
             });
             Assert.Equal("Third", pages[1].Rows[0].Cells[0].Text);
+            await ExcelConverter.ToPDFAsync(input, output,
+                new ExcelConversionOptions
+                {
+                    PdfUseWorksheetPrintSettings = true,
+                    PdfPreserveCellFormatting = true
+                });
+            Assert.True(new FileInfo(output).Length > 100);
         }
-        finally { if (File.Exists(input)) File.Delete(input); }
+        finally
+        {
+            if (File.Exists(input)) File.Delete(input);
+            if (File.Exists(output)) File.Delete(output);
+        }
     }
 
     [Fact]
