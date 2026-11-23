@@ -70,25 +70,50 @@ Use options-based conversions to enable these limits. The legacy two-argument
 and existing multi-file/all-sheets helpers are unchanged and do not expose
 the safety-limit options.
 
+## Updated measurement protocol (post-baseline)
+
+The first benchmark series (1K, 10K, 100K rows) used a single process for
+workbook generation and every format. Its peak working set was cumulative and
+not attributable to a particular conversion. The initial 100K run measured
+around 626 MiB of *whole-process* peak working set, not CSV/JSON alone.
+
+The new `run_benchmarks.py` protocol generates the workbook separately. Each
+format runs in a **new worker process** for each of three trials. That worker
+performs one untimed same-format warmup, runs a full GC, then measures one
+conversion. The report includes per-trial elapsed milliseconds, whole-process
+allocations, current working set and process peak working set, plus medians.
+Peak working set includes the warmup in that worker but excludes workbook
+generation or other output formats. All metrics remain environment-dependent.
+
+Use the manual GitHub Actions benchmark workflow at 1K, 10K, and 100K rows
+to capture **new** baseline results before making improvement claims. These
+results are not directly comparable to the previous cold, single-process
+benchmark. At 100K the workflow still limits itself to CSV and JSON. It is
+not a streaming XLSX reader, and concurrent server conversions may still
+require explicit resource caps.
+
+## Memory optimization notes
+
+CSV and JSON output paths now write incrementally, avoiding one large CSV
+StringBuilder or a second full JSON records list and serialized JSON string.
+The worksheet reader no longer allocates typed value rows when native types
+are not requested. It still materializes formatted display rows with ClosedXML
+and therefore remains memory-intensive for large spreadsheets.
+
 ## Benchmarks
 
-Run locally on .NET 10:
+Run the new protocol locally with .NET 10:
 
-\`\`\`bash
-dotnet run -c Release --project tests/ExcelExportKit.Benchmarks -- 1000 ./benchmarks/1000
-dotnet run -c Release --project tests/ExcelExportKit.Benchmarks -- 10000 ./benchmarks/10000
-dotnet run -c Release --project tests/ExcelExportKit.Benchmarks -- 100000 ./benchmarks/100000
-\`\`\`
+```bash
+dotnet build -c Release tests/ExcelExportKit.Benchmarks/ExcelExportKit.Benchmarks.csproj
+python3 tests/ExcelExportKit.Benchmarks/run_benchmarks.py \
+  --dll tests/ExcelExportKit.Benchmarks/bin/Release/net10.0/ExcelExportKit.Benchmarks.dll \
+  --rows 10000 --output ./benchmark-results --repeats 3
+```
 
-Each produces a deterministic six-column XLSX, conversion artifacts and
-\`benchmark.json\`. The 100K-run intentionally excludes PDF and DOCX because
-full in-memory layout is not yet bounded. The harness reports elapsed time,
-output size, current managed heap and peak process working set; these are
-observational metrics, not performance guarantees. Use the same OS/runner,
-.NET version and resources when comparing revisions.
-
-The GitHub Actions manual workflow **Excel conversion benchmarks** exposes
-row-size choices and retains benchmark reports as artifacts.
+Other supported sizes are 1,000 and 100,000 rows. The JSON report includes
+per-trial metrics and medians; output artifacts are removed between trials.
+The GitHub Actions manual workflow uses the same program.
 
 ## Explicit remaining gaps
 

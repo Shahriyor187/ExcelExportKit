@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       rows:
-        description: "Fixture rows (100000 can consume substantial memory/time)"
+        description: "Fixture rows"
         required: true
         type: choice
         options:
@@ -27,31 +27,38 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Generate workbook and measure conversions
-        run: |
-          dotnet run -c Release \
-            --project tests/ExcelExportKit.Benchmarks/ExcelExportKit.Benchmarks.csproj \
-            -- "${{ inputs.rows }}" "${{ runner.temp }}/benchmark-results"
+      - name: Build benchmark worker
+        run: dotnet build tests/ExcelExportKit.Benchmarks/ExcelExportKit.Benchmarks.csproj -c Release
 
-      - name: Show benchmark summary
+      - name: Measure isolated, warmed-up conversions
+        run: |
+          python3 tests/ExcelExportKit.Benchmarks/run_benchmarks.py \
+            --dll tests/ExcelExportKit.Benchmarks/bin/Release/net10.0/ExcelExportKit.Benchmarks.dll \
+            --rows "${{ inputs.rows }}" \
+            --output "${{ runner.temp }}/benchmark-results" --repeats 3
+
+      - name: Add benchmark summary
         run: |
           python3 - <<'PY'
           import json, os
           from pathlib import Path
           data=json.loads((Path(os.environ["RUNNER_TEMP"])/"benchmark-results"/"benchmark.json").read_text())
-          lines=[f"## ExcelExportKit benchmark ({data['rows']:,} rows)",
-                 "", "| Operation | Elapsed ms | Output bytes |", "|---|---:|---:|"]
-          for row in data["steps"]:
-              lines.append(f"| {row['operation']} | {row['elapsedMs']} | {row['bytes']} |")
-          lines.extend(["", "Measurements are cold and machine-dependent; do not compare across runner types."])
-          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
-              f.write("\n".join(lines)+"\n")
+          summary=[f"## ExcelExportKit benchmark ({data['rows']:,} rows)", "",
+                   "Fresh process per trial, one warmup then one measurement; median of 3 trials.",
+                   "", "| Operation | Median time (ms) | Median peak RSS (MiB) |",
+                   "|---|---:|---:|"]
+          for kind, item in data["results"].items():
+              summary.append(f"| {kind} | {item['medianElapsedMs']:.1f} | {item['medianPeakWorkingSetBytes']/1048576:.1f} |")
+          summary.append("")
+          summary.append("Peak RSS includes worker warmup, excludes workbook generation.")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as output:
+              output.write("\n".join(summary)+"\n")
           PY
 
-      - name: Upload performance report
+      - name: Upload benchmark report
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-${{ inputs.rows }}-rows
+          name: isolated-benchmark-${{ inputs.rows }}
           path: ${{ runner.temp }}/benchmark-results/benchmark.json
           retention-days: 30
           if-no-files-found: error
