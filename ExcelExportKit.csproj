@@ -5,10 +5,10 @@
     <Nullable>enable</Nullable>
 
     <PackageId>ExcelExportKit</PackageId>
-    <Version>1.2.0</Version>
+    <Version>2.0.0-rc.1</Version>
     <Authors>Shahriyor Murodilov</Authors>
-    <Description>Convert selected Excel worksheets to CSV, typed JSON, PDF, or Word documents with batch export and optional PDF cell formatting.</Description>
-    <PackageTags>excel;xlsx;csv;json;pdf;word;docx;conversion;export</PackageTags>
+    <Description>Convert Excel worksheets to CSV, typed JSON, styled PDF and Word, with worksheet selection, print settings, embedded images and opt-in input limits.</Description>
+    <PackageTags>excel;xlsx;csv;json;pdf;word;docx;conversion;export;pdf-export;spreadsheet</PackageTags>
     <PackageProjectUrl>https://github.com/Shahriyor187/ExcelExportKit</PackageProjectUrl>
     <RepositoryUrl>https://github.com/Shahriyor187/ExcelExportKit</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
