@@ -1,0 +1,87 @@
+name: Export Studio demo
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - "examples/ExportStudio/**"
+      - ".github/workflows/export-studio.yml"
+      - "ExcelExportKit.csproj"
+  push:
+    branches: [master]
+    paths:
+      - "examples/ExportStudio/**"
+      - ".github/workflows/export-studio.yml"
+      - "ExcelExportKit.csproj"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Restore and build demo using published packages
+        run: |
+          dotnet restore examples/ExportStudio/ExportStudio.csproj
+          dotnet build examples/ExportStudio/ExportStudio.csproj -c Release --no-restore
+      - name: Test all nine downloads over HTTP
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet run --no-build -c Release --project examples/ExportStudio/ExportStudio.csproj --urls http://127.0.0.1:5075 > /tmp/export-studio.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true; cat /tmp/export-studio.log' EXIT
+          python3 - <<'PY'
+          import json, time, urllib.error, urllib.request, zipfile, io
+          root = "http://127.0.0.1:5075"
+          for attempt in range(60):
+              try:
+                  with urllib.request.urlopen(root + "/api/health", timeout=2) as response:
+                      assert json.load(response)["status"] == "ok"
+                  break
+              except (OSError, ValueError):
+                  time.sleep(1)
+          else:
+              raise RuntimeError("Demo did not start within 60 seconds")
+          with urllib.request.urlopen(root + "/api/preview") as response:
+              assert len(json.load(response)) == 8
+          for mode, formats in (
+              ("data", ("csv", "json", "xml", "xlsx")),
+              ("workbook", ("csv", "json", "pdf", "docx")),
+              ("report", ("xlsx",)),
+          ):
+              for fmt in formats:
+                  url = f"{root}/api/export/{mode}/{fmt}"
+                  with urllib.request.urlopen(url, timeout=45) as response:
+                      payload = response.read()
+                      assert response.status == 200 and payload, url
+                  if fmt == "pdf":
+                      assert payload.startswith(b"%PDF-"), url
+                  if fmt in ("xlsx", "docx"):
+                      assert zipfile.is_zipfile(io.BytesIO(payload)), url
+                      with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+                          names = set(archive.namelist())
+                          assert ("word/document.xml" if fmt == "docx" else "xl/workbook.xml") in names, url
+                          if mode == "report":
+                              assert "xl/worksheets/sheet2.xml" in names, url
+                  if fmt == "json":
+                      assert len(json.loads(payload)) == 8, url
+                  if fmt == "xml":
+                      assert b"<data" in payload, url
+                  if fmt == "csv":
+                      assert b"OrderId" in payload and b"SO-1042" in payload, url
+                  print(f"PASS {mode}/{fmt}: {len(payload)} bytes")
+          try:
+              urllib.request.urlopen(root + "/api/export/data/pdf", timeout=5)
+          except urllib.error.HTTPError as err:
+              assert err.code == 400
+          else:
+              raise AssertionError("Unsupported format was not rejected")
+          PY

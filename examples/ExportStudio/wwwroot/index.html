@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101a2a">
+  <meta name="description" content="Export Studio: a live demo of DataExport and ExcelExportKit for .NET.">
+  <title>Export Studio | DataExport + ExcelExportKit</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="/" aria-label="Export Studio home"><span class="brand-mark">↗</span><span>EXPORT<span class="brand-light">STUDIO</span><small>THE .NET EXPORT PLAYGROUND</small></span></a>
+      <div class="side-label">WORKSPACE</div>
+      <a class="side-link selected" href="#overview"><span>◫</span> Overview</a>
+      <a class="side-link" href="#exports"><span>⇩</span> Export center</a>
+      <a class="side-link" href="#preview"><span>▦</span> Sample data</a>
+      <div class="side-bottom"><span class="status-dot"></span> Local demo · no uploads<br><small>Powered by published NuGet packages</small></div>
+    </aside>
+    <main>
+      <header class="topbar"><div class="breadcrumb">Workspace <span>/</span> <strong>Overview</strong></div><div class="top-actions"><span class="live">● Live example</span><a href="https://github.com/Shahriyor187/ExcelExportKit/tree/master/examples/ExportStudio" target="_blank" rel="noopener">View source ↗</a></div></header>
+      <div class="content">
+        <section id="overview" class="hero">
+          <div><div class="eyebrow"><span class="pulse"></span> OPEN-SOURCE .NET DEMO <span class="badge">v2.0.0</span></div>
+            <h1>Your data.<br><span>Every format.</span></h1>
+            <p>One practical workspace to see <b>DataExport</b> and <b>ExcelExportKit</b> working together. Generate files from C# records, then transform an Excel workbook into shareable reports.</p>
+            <a class="primary-link" href="#exports">Explore export options <span>↗</span></a>
+          </div>
+          <div class="hero-art" aria-hidden="true"><div class="floating f1">.CSV</div><div class="floating f2">.XLSX</div><div class="file-illustration"><div class="file-fold"></div><span>≋</span><small>DATA</small><div class="lines"><i></i><i></i><i></i></div></div><div class="floating f3">.PDF</div><div class="floating f4">.JSON</div></div>
+        </section>
+        <section class="metrics" aria-label="Demo highlights">
+          <div class="metric"><span>DATASET</span><strong id="record-count">8</strong><small>Sample order records</small></div>
+          <div class="metric"><span>EXPORT FORMATS</span><strong>6</strong><small>CSV, JSON, XML, XLSX, PDF, DOCX</small></div>
+          <div class="metric"><span>PACKAGES</span><strong>2</strong><small>Published on NuGet</small></div>
+          <div class="metric"><span>RUNTIME</span><strong>.NET 10</strong><small>No external services</small></div>
+        </section>
+        <section id="exports" class="section">
+          <div class="heading"><div><div class="eyebrow">GET STARTED</div><h2>Export center</h2><p>Pick a pipeline and download a real file from the running app.</p></div><span class="chip">DEMO DATA ONLY</span></div>
+          <div class="export-grid">
+            <article class="export-card"><div class="card-top"><div class="iconbox purple">◇</div><span class="pill">DATAEXPORT 2.0</span></div><h3>C# records → Files</h3><p>Export strongly typed sample records directly into four standard formats, with a configurable Excel worksheet.</p><div class="divider"></div><div class="formats"><button data-mode="data" data-format="csv">CSV <span>↓</span></button><button data-mode="data" data-format="json">JSON <span>↓</span></button><button data-mode="data" data-format="xml">XML <span>↓</span></button><button data-mode="data" data-format="xlsx">XLSX <span>↓</span></button></div><a href="https://www.nuget.org/packages/DataExport/2.0.0" target="_blank" rel="noopener" class="card-link">Explore DataExport ↗</a></article>
+            <article class="export-card highlighted"><div class="card-top"><div class="iconbox green">↗</div><span class="pill greenpill">BOTH LIBRARIES</span></div><h3>Excel → Documents</h3><p>DataExport builds a worksheet; ExcelExportKit then converts it into a document or another structured format.</p><div class="divider"></div><div class="formats"><button data-mode="workbook" data-format="pdf">PDF <span>↓</span></button><button data-mode="workbook" data-format="docx">DOCX <span>↓</span></button><button data-mode="workbook" data-format="csv">CSV <span>↓</span></button><button data-mode="workbook" data-format="json">JSON <span>↓</span></button></div><a href="https://www.nuget.org/packages/ExcelExportKit/2.0.0" target="_blank" rel="noopener" class="card-link">Explore ExcelExportKit ↗</a></article>
+            <article class="export-card wide"><div><div class="card-top"><div class="iconbox orange">▦</div><span class="pill">MULTI-SHEET</span></div><h3>Styled Excel report</h3><p>Generate a workbook with an order sheet, region summary, filterable headers, alternating row styles, and total formulas.</p></div><button class="report-download" data-mode="report" data-format="xlsx">Download Excel report <span>↓</span></button></article>
+          </div>
+          <p id="feedback" role="status" aria-live="polite" class="feedback">Ready to generate your first export.</p>
+        </section>
+        <section id="preview" class="section preview-section"><div class="heading"><div><div class="eyebrow">THE SOURCE</div><h2>Preview the dataset</h2><p>Sample sales orders generated in C# — no personal data, no account required.</p></div></div><div class="table-wrapper"><table><thead><tr><th>ORDER ID</th><th>CUSTOMER</th><th>REGION</th><th>PRODUCT</th><th>UNITS</th><th>REVENUE</th></tr></thead><tbody id="orders-body"><tr><td colspan="6">Loading sample records…</td></tr></tbody></table></div></section>
+        <footer><span>Built with <a href="https://github.com/Shahriyor187/DataExport">DataExport</a> + <a href="https://github.com/Shahriyor187/ExcelExportKit">ExcelExportKit</a></span><span>Locally hosted · No database · No user uploads</span></footer>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
