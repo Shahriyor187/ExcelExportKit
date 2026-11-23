@@ -148,12 +148,18 @@ public static partial class ExcelConverter
         var vertical = new SortedSet<int>();
         using (var spreadsheet = SpreadsheetDocument.Open(filePath, false))
         {
-            var wb = spreadsheet.WorkbookPart!;
-            var sheet = wb.Workbook.Sheets!.Elements<Ss.Sheet>()
+            var wb = spreadsheet.WorkbookPart
+                ?? throw new InvalidDataException("XLSX workbook part is missing.");
+            var sheet = (wb.Workbook.Sheets
+                ?? throw new InvalidDataException("XLSX worksheet metadata is missing."))
+                .Elements<Ss.Sheet>()
                 .FirstOrDefault(s =>
                     string.Equals(s.Name?.Value, worksheet.Name, StringComparison.OrdinalIgnoreCase))
                 ?? throw new InvalidDataException("Worksheet metadata was not found.");
-            var part = (WorksheetPart)wb.GetPartById(sheet.Id!.Value!);
+            var relationshipId = sheet.Id?.Value
+                ?? throw new InvalidDataException("XLSX worksheet relationship is missing.");
+            if (wb.GetPartById(relationshipId) is not WorksheetPart part)
+                throw new InvalidDataException("XLSX worksheet part is missing.");
             if (options.PdfPrintScalePercent is null &&
                 part.Worksheet.GetFirstChild<Ss.SheetProperties>()?
                     .PageSetupProperties?.FitToPage?.Value == true)
