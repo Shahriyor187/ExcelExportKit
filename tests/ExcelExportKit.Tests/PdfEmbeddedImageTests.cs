@@ -52,6 +52,36 @@ public sealed class PdfEmbeddedImageTests
     }
 
     [Fact]
+    public void SkipEmptyRowsDoesNotDiscardImageOnlyRow()
+    {
+        var input = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".xlsx");
+        try
+        {
+            using (var book = new XLWorkbook())
+            {
+                var sheet = book.AddWorksheet("Report");
+                sheet.Cell("A1").Value = "Name";
+                sheet.Cell("B1").Value = "Photo";
+                sheet.Cell("A3").Value = "Second student";
+                using var picture = new MemoryStream(Png);
+                sheet.AddPicture(picture, XLPictureFormat.Png)
+                    .MoveTo(sheet.Cell("B2"));
+                book.SaveAs(input);
+            }
+            var snapshot = ExcelConverter.ReadPdfFormatting(input, new ExcelConversionOptions
+            {
+                PdfPreserveCellFormatting = true,
+                PdfIncludeEmbeddedImages = true,
+                SkipEmptyRows = true,
+                RangeAddress = "A1:B3"
+            });
+            Assert.Equal(2, snapshot.Rows.Count);
+            Assert.NotNull(snapshot.Rows[0].Cells[1].Picture);
+        }
+        finally { if (File.Exists(input)) File.Delete(input); }
+    }
+
+    [Fact]
     public void FailsExplicitlyWhenPictureIsOutsideSelectedRange()
     {
         var input = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".xlsx");
