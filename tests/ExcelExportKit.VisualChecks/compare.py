@@ -46,6 +46,37 @@ def verify_image_fixture(path: pathlib.Path) -> dict:
     return counts
 
 
+
+def verify_print_layout_pages(pdf: pathlib.Path, page_count: int) -> None:
+    """Guard the expected two row segments x two column segments page order.
+
+    Independent Excel LTSC references confirmed this four-page section ordering.
+    This does NOT imply identical Excel geometry, page margins or font scaling.
+    """
+    import re
+    if page_count != 4:
+        raise RuntimeError(f"print-layout: expected 4 manual sections, got {page_count}")
+    expected = (
+        ("Section", "Report title row", "Part A", "Item 1", "Item 16"),
+        ("Section", "Report title row", "Part B", "Item 17", "Item 32"),
+        ("Score", "Scale 85%", "Landscape", "1109", "1244"),
+        ("Score", "Scale 85%", "Landscape", "1253", "1388"),
+    )
+    for index, required in enumerate(expected, start=1):
+        page_text = subprocess.run(
+            ["pdftotext", "-f", str(index), "-l", str(index),
+             "-layout", str(pdf), "-"],
+            check=True, capture_output=True, text=True,
+        ).stdout
+        # Whole-token matching avoids accepting "Item 1" as a substring of
+        # "Item 10" when testing print sections.
+        missing = [
+            phrase for phrase in required
+            if not re.search(r"(?<!\w)" + re.escape(phrase) + r"(?!\w)", page_text)
+        ]
+        if missing:
+            raise RuntimeError(f"print-layout page {index}: missing {missing}")
+
 def render_folder(
     source: pathlib.Path,
     destination: pathlib.Path,
@@ -80,6 +111,8 @@ def render_folder(
             missing = [text for text in EXPECTED_TEXT[fixture] if text not in result.stdout]
             if missing:
                 raise RuntimeError(f"{fixture}: PDF text missing {missing}")
+            if fixture == "print-layout":
+                verify_print_layout_pages(pdf, len(pages))
 
         summary = {"pages": len(pages), "sizeBytes": pdf.stat().st_size}
         if check_text:
