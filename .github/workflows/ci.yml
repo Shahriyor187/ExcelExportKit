@@ -22,6 +22,12 @@ jobs:
       - name: Restore
         run: dotnet restore tests/ExcelExportKit.Tests/ExcelExportKit.Tests.csproj
 
+      - name: Audit direct and transitive NuGet dependencies
+        run: |
+          dotnet list ExcelExportKit.csproj package --vulnerable --include-transitive \
+            --format json --output-version 1 --no-restore > nuget-audit.json
+          python3 .github/scripts/check-nuget-audit.py nuget-audit.json
+
       - name: Test on .NET 8 and .NET 10
         run: dotnet test tests/ExcelExportKit.Tests/ExcelExportKit.Tests.csproj --configuration Release --no-restore
 
@@ -37,10 +43,15 @@ jobs:
       - name: Pack both target frameworks
         run: dotnet pack ExcelExportKit.csproj --configuration Release --no-restore --output ./artifacts
 
+      - name: Read candidate package version
+        run: |
+          echo "PACKAGE_VERSION=$(dotnet msbuild ExcelExportKit.csproj -getProperty:Version -nologo | tr -d '\r\n')" >> "$GITHUB_ENV"
+
       - name: Verify NuGet package contents
         env:
           PACKAGE_ID: ExcelExportKit
           LICENSE_FILE: LICENSE.txt
+          PACKAGE_VERSION: ${{ env.PACKAGE_VERSION }}
         run: |
           python3 - <<'PY'
           import glob
@@ -52,6 +63,7 @@ jobs:
           license_file = os.environ["LICENSE_FILE"]
           packages = glob.glob("artifacts/*.nupkg")
           assert len(packages) == 1, f"Expected exactly one .nupkg: {packages}"
+          assert os.path.basename(packages[0]) == f"{package_id}.{os.environ['PACKAGE_VERSION']}.nupkg", "Wrong candidate package version"
           with zipfile.ZipFile(packages[0]) as archive:
               names = archive.namelist()
               required = {
@@ -74,16 +86,8 @@ jobs:
               print(f"Verified {packages[0]}: README, license, both target frameworks")
           PY
 
-      - name: Smoke-test NuGet consumer on .NET 8
-        env:
-          PACKAGE_ID: ExcelExportKit
-        run: |
-          mkdir -p consumer
-          cd consumer
-          dotnet new console --framework net8.0 --no-restore
-          dotnet add package "$PACKAGE_ID" --version 1.2.0 --no-restore
-          dotnet restore --source ../artifacts --source https://api.nuget.org/v3/index.json
-          dotnet build --configuration Release --no-restore
+      - name: Install and execute packed candidate on .NET 8 and .NET 10
+        run: bash .github/scripts/test-local-package.sh
 
       - name: Upload NuGet build artifacts
         uses: actions/upload-artifact@v4
