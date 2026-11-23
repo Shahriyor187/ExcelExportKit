@@ -52,12 +52,17 @@ public static partial class ExcelConverter
                                 foreach (var width in chunk.ColumnWidths)
                                     cols.RelativeColumn(width);
                             });
-                            table.HeaderRow(row =>
-                            {
-                                foreach (var cell in chunk.Header.Cells)
-                                    RenderPdfCell(row.Cell(columnSpan: cell.ColumnSpan),
-                                        ScalePrintCell(cell, layout.Scale), true);
-                            });
+                            void RenderHeader(PdfStyledRow heading) =>
+                                table.HeaderRow(row =>
+                                {
+                                    foreach (var cell in heading.Cells)
+                                        RenderPdfCell(row.Cell(columnSpan: cell.ColumnSpan),
+                                            ScalePrintCell(cell, layout.Scale), true);
+                                });
+                            RenderHeader(chunk.Header);
+                            if (chunk.AdditionalHeaders is not null)
+                                foreach (var heading in chunk.AdditionalHeaders)
+                                    RenderHeader(heading);
                             foreach (var line in chunk.Rows)
                                 table.Row(row =>
                                 {
@@ -121,11 +126,6 @@ public static partial class ExcelConverter
             throw new ArgumentException("Selected worksheet does not exist.", nameof(options));
 
         var settings = worksheet.PageSetup;
-        if (settings.FirstRowToRepeatAtTop > 0 &&
-            settings.LastRowToRepeatAtTop != settings.FirstRowToRepeatAtTop)
-            throw new NotSupportedException(
-                "Multiple repeated title rows are not supported yet; only one title row can repeat on every PDF page.");
-
         var regions = (string.IsNullOrWhiteSpace(options.RangeAddress)
                 ? settings.PrintAreas.Select(x => x.RangeAddress).ToList()
                 : new List<IXLRangeAddress> { worksheet.Range(options.RangeAddress).RangeAddress })
@@ -175,40 +175,32 @@ public static partial class ExcelConverter
             // or the workbook's dedicated print-title row, if provided.
             var titleRow = settings.FirstRowToRepeatAtTop > 0
                 ? settings.FirstRowToRepeatAtTop : r1;
-            if (titleRow > r2 || titleRow < 1)
+            var titleLastRow = settings.LastRowToRepeatAtTop > 0
+                ? settings.LastRowToRepeatAtTop : titleRow;
+            if (titleRow > r2 || titleRow < 1 || titleLastRow < titleRow)
                 throw new NotSupportedException("Print title row is outside the print area.");
             if (titleRow > r1)
                 throw new NotSupportedException(
                     "Print title row must precede or equal the first printed row.");
 
-            var title = ReadPdfFormatting(filePath, new ExcelConversionOptions
-            {
-                WorksheetName = worksheet.Name,
-                RangeAddress = worksheet.Range(titleRow, c1, titleRow, c2)
-                    .RangeAddress.ToString(),
-                PdfPreserveCellFormatting = true,
-                PdfIncludeEmbeddedImages = options.PdfIncludeEmbeddedImages,
-                PdfMaxEmbeddedImageBytes = options.PdfMaxEmbeddedImageBytes,
-                PdfMaxEmbeddedImages = options.PdfMaxEmbeddedImages,
-                PdfIgnoreImagesOutsideSelectedRange = true
-            }).Header;
-
-            var rowStart = Math.Max(r1, titleRow + 1);
+            var rowStart = Math.Max(r1, titleLastRow + 1);
             var rowSegments = SplitAtBreaks(rowStart, r2, horizontal);
             var colSegments = SplitAtBreaks(c1, c2, vertical);
             foreach (var (cs, ce) in colSegments)
             {
-                var colTitle = ReadPdfFormatting(filePath, new ExcelConversionOptions
+                var titleSnapshot = ReadPdfFormatting(filePath, new ExcelConversionOptions
                 {
                     WorksheetName = worksheet.Name,
-                    RangeAddress = worksheet.Range(titleRow, cs, titleRow, ce)
+                    RangeAddress = worksheet.Range(titleRow, cs, titleLastRow, ce)
                         .RangeAddress.ToString(),
                     PdfPreserveCellFormatting = true,
                     PdfIncludeEmbeddedImages = options.PdfIncludeEmbeddedImages,
                     PdfMaxEmbeddedImageBytes = options.PdfMaxEmbeddedImageBytes,
                     PdfMaxEmbeddedImages = options.PdfMaxEmbeddedImages,
                 PdfIgnoreImagesOutsideSelectedRange = true
-                }).Header;
+                });
+                var colTitle = titleSnapshot.Header;
+                var extraTitleRows = titleSnapshot.Rows;
                 foreach (var (rs, re) in rowSegments)
                 {
                     // A range's first row is treated as a header by the shared
@@ -229,7 +221,8 @@ public static partial class ExcelConverter
                             SkipEmptyRows = options.SkipEmptyRows
                         });
                         chunks.Add(new PdfFormattingSnapshot(page.ColumnWidths, colTitle,
-                            new[] { page.Header }.Concat(page.Rows).ToList()));
+                            new[] { page.Header }.Concat(page.Rows).ToList(),
+                            extraTitleRows));
                     }
                     else
                     {
@@ -237,7 +230,7 @@ public static partial class ExcelConverter
                             .Select(i => (double)Math.Clamp(worksheet.Column(i).Width, 3, 80))
                             .ToList();
                         chunks.Add(new PdfFormattingSnapshot(widths, colTitle,
-                            Array.Empty<PdfStyledRow>()));
+                            Array.Empty<PdfStyledRow>(), extraTitleRows));
                     }
                 }
             }
