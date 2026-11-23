@@ -79,11 +79,12 @@ public sealed class PdfPrintLayoutTests
             {
                 var ws = book.AddWorksheet("Report");
                 ws.Cell("A1").Value = "Report heading";
+                ws.Cell("A2").Value = "Report subheading";
                 ws.Cell("A4").Value = "First";
                 ws.Cell("A5").Value = "Second";
                 ws.Cell("A6").Value = "Third";
                 ws.PageSetup.PrintAreas.Add("A4:A6");
-                ws.PageSetup.SetRowsToRepeatAtTop(1, 1);
+                ws.PageSetup.SetRowsToRepeatAtTop(1, 2);
                 ws.PageSetup.AddHorizontalPageBreak(5);
                 book.SaveAs(input);
             }
@@ -95,7 +96,11 @@ public sealed class PdfPrintLayoutTests
                     PdfPreserveCellFormatting = true
                 }).Chunks;
             Assert.Equal(2, pages.Count);
-            Assert.All(pages, p => Assert.Equal("Report heading", p.Header.Cells[0].Text));
+            Assert.All(pages, p =>
+            {
+                Assert.Equal("Report heading", p.Header.Cells[0].Text);
+                Assert.Equal("Report subheading", Assert.Single(p.AdditionalHeaders!).Cells[0].Text);
+            });
             Assert.Equal("Third", pages[1].Rows[0].Cells[0].Text);
         }
         finally { if (File.Exists(input)) File.Delete(input); }
