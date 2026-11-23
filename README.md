@@ -162,6 +162,24 @@ are **not** performance guarantees or proof of an optimization.
 The release gates and known limitations are in
 [the v2 release checklist](docs/RELEASE_V2_CHECKLIST.md).
 
+## Validate a representative workbook locally before v2 release
+
+The release candidate includes a **local-only** probe for checking that a
+realistic workbook can be converted to CSV, JSON, PDF and DOCX with opt-in
+resource limits. It deletes temporary conversions after checking them and
+reports timings, output sizes, success/failure categories and a cumulative
+process peak-memory figure, without printing worksheet contents.
+
+```bash
+dotnet run -c Release --project tests/ExcelExportKit.ReleaseProbe -- \
+  ./local-report.xlsx --formats csv,json,pdf,docx --report ./release-probe.json
+```
+
+Run this in a local source checkout. Do **not** commit or upload confidential
+workbooks. The probe provides diagnostic evidence, not a proof of exact
+document fidelity or a complete security assessment. For the full protocol,
+see [the v2 release checklist](docs/RELEASE_V2_CHECKLIST.md).
+
 ## Requirements
 
 - .NET 8 or .NET 10
