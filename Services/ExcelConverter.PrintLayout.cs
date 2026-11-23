@@ -29,10 +29,10 @@ public static partial class ExcelConverter
                         page.Size(layout.Landscape
                             ? PageSize.Landscape(PageSize.A4)
                             : PageSize.A4);
-                        page.MarginLeft(layout.LeftMarginPoints);
-                        page.MarginRight(layout.RightMarginPoints);
-                        page.MarginTop(layout.TopMarginPoints);
-                        page.MarginBottom(layout.BottomMarginPoints);
+                        page.Margin(top: layout.TopMarginPoints,
+                            right: layout.RightMarginPoints,
+                            bottom: layout.BottomMarginPoints,
+                            left: layout.LeftMarginPoints);
                         page.DefaultTextStyle(style => style.FontSize(9));
 
                         if (!string.IsNullOrWhiteSpace(options.DocumentTitle))
