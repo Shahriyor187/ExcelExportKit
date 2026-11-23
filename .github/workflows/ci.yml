@@ -33,6 +33,12 @@ jobs:
       - name: Test on .NET 8 and .NET 10
         run: dotnet test tests/ExcelExportKit.Tests/ExcelExportKit.Tests.csproj --configuration Release --no-restore
 
+      - name: Compile local real-workbook probe
+        run: dotnet build tests/ExcelExportKit.ReleaseProbe/ExcelExportKit.ReleaseProbe.csproj --configuration Release
+
+      - name: Check local probe CLI
+        run: dotnet run --project tests/ExcelExportKit.ReleaseProbe/ExcelExportKit.ReleaseProbe.csproj -c Release --no-build -- --help
+
       - name: Build benchmark harness
         run: dotnet build tests/ExcelExportKit.Benchmarks/ExcelExportKit.Benchmarks.csproj --configuration Release
 
