@@ -189,7 +189,8 @@ public static partial class ExcelConverter
                 PdfPreserveCellFormatting = true,
                 PdfIncludeEmbeddedImages = options.PdfIncludeEmbeddedImages,
                 PdfMaxEmbeddedImageBytes = options.PdfMaxEmbeddedImageBytes,
-                PdfMaxEmbeddedImages = options.PdfMaxEmbeddedImages
+                PdfMaxEmbeddedImages = options.PdfMaxEmbeddedImages,
+                PdfIgnoreImagesOutsideSelectedRange = true
             }).Header;
 
             var rowStart = Math.Max(r1, titleRow + 1);
@@ -205,7 +206,8 @@ public static partial class ExcelConverter
                     PdfPreserveCellFormatting = true,
                     PdfIncludeEmbeddedImages = options.PdfIncludeEmbeddedImages,
                     PdfMaxEmbeddedImageBytes = options.PdfMaxEmbeddedImageBytes,
-                    PdfMaxEmbeddedImages = options.PdfMaxEmbeddedImages
+                    PdfMaxEmbeddedImages = options.PdfMaxEmbeddedImages,
+                PdfIgnoreImagesOutsideSelectedRange = true
                 }).Header;
                 foreach (var (rs, re) in rowSegments)
                 {
@@ -223,6 +225,7 @@ public static partial class ExcelConverter
                             PdfIncludeEmbeddedImages = options.PdfIncludeEmbeddedImages,
                             PdfMaxEmbeddedImageBytes = options.PdfMaxEmbeddedImageBytes,
                             PdfMaxEmbeddedImages = options.PdfMaxEmbeddedImages,
+                PdfIgnoreImagesOutsideSelectedRange = true,
                             SkipEmptyRows = options.SkipEmptyRows
                         });
                         chunks.Add(new PdfFormattingSnapshot(page.ColumnWidths, colTitle,
