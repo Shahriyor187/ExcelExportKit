@@ -32,7 +32,7 @@ public static partial class ExcelConverter
             throw new InvalidDataException(
                 $"Workbook file exceeds the configured maximum of {maxFileBytes} bytes.");
 
-        if (options.MaxUncompressedWorkbookBytes is not long uncompressedLimit &&
+        if (options.MaxUncompressedWorkbookBytes is null &&
             options.MaxWorkbookArchiveEntries is null)
             return;
 
