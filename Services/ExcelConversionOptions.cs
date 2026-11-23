@@ -50,6 +50,10 @@ public sealed class ExcelConversionOptions
     /// </summary>
     public int? PdfPrintScalePercent { get; set; }
 
+    // Internal-only: a print job may split a sheet into sections. An image
+    // anchored outside the current section belongs to another page, not an error.
+    internal bool PdfIgnoreImagesOutsideSelectedRange { get; set; }
+
     /// <summary>Word table style identifier.</summary>
     public string WordTableStyle { get; set; } = "TableGrid";
 
