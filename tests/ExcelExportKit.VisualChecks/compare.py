@@ -11,7 +11,7 @@ import pathlib
 import subprocess
 from PIL import Image, ImageChops
 
-FIXTURES = ("merged-header", "vertical-merge", "multi-page")
+FIXTURES = ("merged-header", "vertical-merge", "multi-page", "image-anchor")
 
 
 def render_folder(source: pathlib.Path, destination: pathlib.Path, dpi: int) -> dict:
@@ -41,6 +41,7 @@ def render_folder(source: pathlib.Path, destination: pathlib.Path, dpi: int) -> 
             "merged-header": ["Q4 Sales Overview", "Tashkent", "Samarkand"],
             "vertical-merge": ["Foundation", "Amina", "Laylo"],
             "multi-page": ["Student 1", "Student 119"],
+            "image-anchor": ["Student", "Amina", "Ali"],
         }[fixture]
         missing = [item for item in required if item not in result.stdout]
         if missing:
