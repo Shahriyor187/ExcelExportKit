@@ -21,6 +21,26 @@ await ExcelConverter.ToPDFAsync("report.xlsx", "report.pdf",
 
 The formatting-aware PDF renderer now supports **fully selected horizontal and vertical merged cells**, solid per-edge borders, approximate Excel row heights, font sizes, colors and basic alignment. Merges crossing a selected range or from the repeated header into data are explicitly rejected. Dashed/double border styles are approximated with solid strokes. It still does **not** reproduce embedded images/charts, exact print areas, manual page breaks, or pixel-perfect Excel pagination.
 
+## PDF visual regression checks
+
+The repository has a dedicated [PDF visual regression workflow](.github/workflows/pdf-visual.yml) that creates three reproducible spreadsheet/PDF pairs:
+
+- `merged-header` — colored merged heading, border weights, custom column widths and alignment
+- `vertical-merge` — two vertically merged groups with data beside row-spanning cells
+- `multi-page` — 119 records to exercise PDF pagination and repeated headers
+
+CI rasterizes each PDF with Poppler at 110 DPI, verifies expected text and pagination, and uploads the source workbooks, PDFs, PNG pages, a JSON summary and per-page pixel-difference masks. On pull requests, it compares against the base branch **when the base contains the fixture generator**. The initial bootstrap PR therefore produces review artifacts without a comparison.
+
+Run the fixtures locally:
+
+```bash
+dotnet run -c Release --project tests/ExcelExportKit.VisualChecks -- ./visual-output/candidate
+python3 -m pip install Pillow==11.3.0
+python3 tests/ExcelExportKit.VisualChecks/compare.py --candidate ./visual-output/candidate --output ./visual-output/report
+```
+
+The PNG stage requires Poppler's `pdftoppm` and `pdftotext` commands. Pixel differences **do not fail CI automatically**; intentional design changes should be inspected in the uploaded artifacts. This is regression review tooling, **not** a comparison to Excel's own printing engine or a guarantee of visual fidelity. PDF text checks are limited to fixture labels and do not replace human inspection.
+
 ## Extract only the cells you need
 
 Select a named sheet and an **A1-style range** for CSV, JSON, PDF, or Word conversion. The first row of the range is treated as its column headers; blank rows can be excluded.

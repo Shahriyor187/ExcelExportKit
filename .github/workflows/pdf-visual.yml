@@ -1,0 +1,115 @@
+name: PDF visual regression
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - "Services/**"
+      - "ExcelExportKit.csproj"
+      - "tests/ExcelExportKit.VisualChecks/**"
+      - ".github/workflows/pdf-visual.yml"
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render-and-compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out candidate
+        uses: actions/checkout@v4
+        with:
+          path: candidate
+
+      - name: Check out PR base
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: baseline
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install repeatable PDF rasterization dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y poppler-utils
+          python3 -m pip install --break-system-packages "Pillow==11.3.0"
+
+      - name: Build and render candidate fixtures
+        run: |
+          dotnet run --configuration Release \
+            --project candidate/tests/ExcelExportKit.VisualChecks/ExcelExportKit.VisualChecks.csproj \
+            -- "${{ github.workspace }}/visual-output/candidate"
+
+      - name: Check whether base has visual fixtures
+        if: github.event_name == 'pull_request'
+        id: base-fixtures
+        run: |
+          if test -f baseline/tests/ExcelExportKit.VisualChecks/ExcelExportKit.VisualChecks.csproj; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "This PR bootstraps visual regression checks; reference images will become available for later PRs."
+          fi
+
+      - name: Build and render PR-base fixtures
+        if: steps.base-fixtures.outputs.available == 'true'
+        run: |
+          dotnet run --configuration Release \
+            --project baseline/tests/ExcelExportKit.VisualChecks/ExcelExportKit.VisualChecks.csproj \
+            -- "${{ github.workspace }}/visual-output/baseline"
+
+      - name: Render PDFs and compare page pixels
+        run: |
+          if test -d visual-output/baseline; then
+            python3 candidate/tests/ExcelExportKit.VisualChecks/compare.py \
+              --candidate visual-output/candidate --baseline visual-output/baseline \
+              --output visual-output/report --dpi 110
+          else
+            python3 candidate/tests/ExcelExportKit.VisualChecks/compare.py \
+              --candidate visual-output/candidate \
+              --output visual-output/report --dpi 110
+          fi
+
+      - name: Add comparison summary
+        if: always()
+        run: |
+          if test -f visual-output/report/visual-report.json; then
+            python3 - <<'PY'
+          import json, os
+          data=json.load(open("visual-output/report/visual-report.json"))
+          summary=["## PDF visual check", "",
+                   "Rendered fixtures: " + ", ".join(data["candidate"].keys()), ""]
+          for name,item in data["candidate"].items():
+              summary.append(f"- **{name}**: {item['pages']} page(s), PDF text validated")
+          if data.get("comparison") is None:
+              summary.append("- No baseline fixture available yet (bootstrap run)")
+          else:
+              changes=[c for c in data["comparison"] if c["status"]!="identical"]
+              summary.append(f"- **{len(changes)}** changed page(s) compared with PR base")
+              summary.append("- Changed pages require human inspection; changes do not automatically fail CI")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as stream:
+              stream.write("\n".join(summary)+"\n")
+          PY
+          fi
+
+      - name: Upload PDFs, rendered images, and difference masks
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pdf-visual-regression
+          path: |
+            visual-output/candidate/*.pdf
+            visual-output/candidate/*.xlsx
+            visual-output/baseline/*.pdf
+            visual-output/report/**/*.png
+            visual-output/report/*.json
+          if-no-files-found: warn
+          retention-days: 14
