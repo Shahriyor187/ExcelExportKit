@@ -96,10 +96,16 @@ await RenderFixture("image-anchor", book =>
     sheet.Range("A1:B1").Style.Fill.BackgroundColor = XLColor.FromHtml("#25466A");
     sheet.Range("A1:B1").Style.Font.FontColor = XLColor.White;
 
-    var tinyPng = Convert.FromBase64String(
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/x4sAAAAASUVORK5CYII=");
-    using var png = new MemoryStream(tinyPng);
+    // Distinctive solid colors allow CI to prove that both formats are actually
+    // visible after PDF rasterization (a 1x1 transparent image cannot do that).
+    var magentaPng = Convert.FromBase64String(
+        "iVBORw0KGgoAAAANSUhEUgAAADAAAAAgCAIAAADbtmxLAAAAP0lEQVR4nO3OMQHAIADAMEDD/EvBECb27+nJjkRB5nn2+JN1O/AlVISKUBEqQkWoCBWhIlSEilARKkJFqAiVF9ZiAf0XmBgdAAAAAElFTkSuQmCC");
+    var greenJpeg = Convert.FromBase64String(
+        "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAIBAQEBAQIBAQECAgICAgQDAgICAgUEBAMEBgUGBgYFBgYGBwkIBgcJBwYGCAsICQoKCgoKBggLDAsKDAkKCgr/2wBDAQICAgICAgUDAwUKBwYHCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgr/wAARCAAgADADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDPooor+Kz/ADXCiiigAooooAKKKKACiiigAooooA//2Q==");
+    using var png = new MemoryStream(magentaPng);
+    using var jpeg = new MemoryStream(greenJpeg);
     sheet.AddPicture(png, ClosedXML.Excel.Drawings.XLPictureFormat.Png).MoveTo(sheet.Cell("B2"));
+    sheet.AddPicture(jpeg, ClosedXML.Excel.Drawings.XLPictureFormat.Jpeg).MoveTo(sheet.Cell("B3"));
 });
 
 Console.WriteLine("Created four XLSX/PDF fixture pairs in " + outputDirectory);
