@@ -14,8 +14,11 @@ separate manual action. The stable v2.0.0 package is not yet published.
       fixtures (merged cells, images, multi-page report). All expected labels
       and all 119 report records match, while pagination differs. See
       [the reference review](EXCEL_REFERENCE_FIDELITY_REVIEW_2026-11-23.md).
-- [ ] Independently test the opt-in print-settings mode (print areas, margins,
-      scaling, repeated title rows and manual page breaks) against Excel.
+- [x] Independently review the opt-in print-settings mode against Excel LTSC:
+      A4 landscape, four-page horizontal/vertical breaks, 32 records and
+      repeated titles match. Page geometry and actual 85% scaling still differ;
+      this is **approximate** rendering, not Excel parity. See
+      [advanced print-layout review](EXCEL_PRINT_LAYOUT_REFERENCE_2026-11-23.md).
 
 - [x] Run the isolated benchmark workflow at 1K, 10K and 100K rows,
       review elapsed time and per-format process peak working set.
