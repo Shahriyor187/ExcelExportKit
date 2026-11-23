@@ -72,7 +72,7 @@ def verify_print_layout_pages(pdf: pathlib.Path, page_count: int) -> None:
         # "Item 10" when testing print sections.
         missing = [
             phrase for phrase in required
-            if not re.search(r"(?<!\\w)" + re.escape(phrase) + r"(?!\\w)", page_text)
+            if not re.search(r"(?<!\w)" + re.escape(phrase) + r"(?!\w)", page_text)
         ]
         if missing:
             raise RuntimeError(f"print-layout page {index}: missing {missing}")
