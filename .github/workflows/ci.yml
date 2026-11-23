@@ -25,6 +25,9 @@ jobs:
       - name: Test on .NET 8 and .NET 10
         run: dotnet test tests/ExcelExportKit.Tests/ExcelExportKit.Tests.csproj --configuration Release --no-restore
 
+      - name: Build benchmark harness
+        run: dotnet build tests/ExcelExportKit.Benchmarks/ExcelExportKit.Benchmarks.csproj --configuration Release
+
       - name: Pack both target frameworks
         run: dotnet pack ExcelExportKit.csproj --configuration Release --no-restore --output ./artifacts
 
