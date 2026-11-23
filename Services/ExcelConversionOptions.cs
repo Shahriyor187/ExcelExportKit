@@ -54,6 +54,28 @@ public sealed class ExcelConversionOptions
     // anchored outside the current section belongs to another page, not an error.
     internal bool PdfIgnoreImagesOutsideSelectedRange { get; set; }
 
+    /// <summary>
+    /// Optional maximum input XLSX file size in bytes, checked before loading it.
+    /// Set for untrusted uploads; null leaves existing behavior unchanged.
+    /// </summary>
+    public long? MaxWorkbookFileBytes { get; set; }
+
+    /// <summary>
+    /// Optional maximum total expanded ZIP entry bytes for the XLSX archive.
+    /// The archive is read once before ClosedXML loads it to enforce this limit.
+    /// Null disables the check for backward compatibility.
+    /// </summary>
+    public long? MaxUncompressedWorkbookBytes { get; set; }
+
+    /// <summary>Optional maximum number of XLSX ZIP archive entries.</summary>
+    public int? MaxWorkbookArchiveEntries { get; set; }
+
+    /// <summary>
+    /// Optional maximum number of cells in the selected worksheet rectangle.
+    /// Prevents accidentally processing enormous sparse ranges.
+    /// </summary>
+    public long? MaxSelectedCells { get; set; }
+
     /// <summary>Word table style identifier.</summary>
     public string WordTableStyle { get; set; } = "TableGrid";
 
