@@ -33,13 +33,30 @@ public sealed class ExcelConversionOptions
     /// <summary>Use landscape A4 orientation for PDF documents.</summary>
     public bool PdfLandscape { get; set; }
 
+    /// <summary>
+    /// Opt in to worksheet print settings for formatting-aware PDF output:
+    /// rectangular print areas, margins, landscape orientation, repeated title rows,
+    /// scaling percentage and manual horizontal/vertical page breaks.
+    /// Incompatible cropped merges are rejected. Excel's exact print engine,
+    /// fit-to-N-pages and variable paper sizes are not emulated.
+    /// Requires PdfPreserveCellFormatting; disabled by default.
+    /// </summary>
+    public bool PdfUseWorksheetPrintSettings { get; set; }
+
+    /// <summary>
+    /// Optional 10-400% override of the worksheet's print scaling percentage.
+    /// Applies only when PdfUseWorksheetPrintSettings is enabled. Scaling changes
+    /// PDF cell text, padding, borders and image sizes, not Excel's fit-to-page logic.
+    /// </summary>
+    public int? PdfPrintScalePercent { get; set; }
+
     /// <summary>Word table style identifier.</summary>
     public string WordTableStyle { get; set; } = "TableGrid";
 
     /// <summary>
     /// Preserve supported Excel fill/font colors, bold text, horizontal alignment and column-width proportions
     /// when exporting to PDF. Off by default to preserve the existing PDF appearance.
-    /// Fully selected merged cells, solid approximations of borders, row heights and font sizes are supported. Images and exact Excel print-layout fidelity are not yet supported.
+    /// Fully selected merged cells, solid approximations of borders, row heights and font sizes are supported. Embedded images are separately opt-in; exact Excel print-layout fidelity is not supported.
     /// </summary>
     public bool PdfPreserveCellFormatting { get; set; }
 
