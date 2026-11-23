@@ -64,7 +64,9 @@ jobs:
         run: |
           dotnet list ExcelExportKit.csproj package --vulnerable --include-transitive \
             --format json --output-version 1 --no-restore > nuget-audit.json
-          python3 .github/scripts/check-nuget-audit.py nuget-audit.json
+          dotnet list ExcelExportKit.csproj package --include-transitive \
+            --format json --output-version 1 --no-restore > nuget-inventory.json
+          python3 .github/scripts/check-nuget-audit.py nuget-audit.json nuget-inventory.json
 
       - name: Pack
         run: dotnet pack ExcelExportKit.csproj -c Release --output ./artifacts
