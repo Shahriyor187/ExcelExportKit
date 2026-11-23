@@ -153,6 +153,12 @@ public static partial class ExcelConverter
                     string.Equals(s.Name?.Value, worksheet.Name, StringComparison.OrdinalIgnoreCase))
                 ?? throw new InvalidDataException("Worksheet metadata was not found.");
             var part = (WorksheetPart)wb.GetPartById(sheet.Id!.Value!);
+            if (options.PdfPrintScalePercent is null &&
+                part.Worksheet.GetFirstChild<Ss.SheetProperties>()?
+                    .PageSetupProperties?.FitToPage?.Value == true)
+                throw new NotSupportedException(
+                    "Excel fit-to-N-pages cannot be reproduced by the PDF table renderer. " +
+                    "Set PdfPrintScalePercent to use an explicit scaling percentage.");
             var h = part.Worksheet.Elements<Ss.RowBreaks>().FirstOrDefault();
             var v = part.Worksheet.Elements<Ss.ColumnBreaks>().FirstOrDefault();
             if (h is not null)
