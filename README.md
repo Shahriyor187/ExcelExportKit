@@ -6,9 +6,11 @@
 
 A .NET library for converting Excel worksheets (`.xlsx`) to **CSV, JSON, PDF, or Word (DOCX)**, including worksheet selection and batch exports.
 
-> **Release note:** The `2.0.0-rc.1` version is a **release candidate in GitHub**, not a published NuGet release. The stable package on NuGet may not yet include these features. Verify the actual installed package version before relying on new options.
+> **Release note:** The source branch contains a prepared **2.0.0 stable release candidate** for final validation, but this is **not a published NuGet release**. The NuGet package listing may still contain an older version. Verify the actual installed package version before relying on new options.
+> **Runtime support:** The package still targets both `net8.0` and `net10.0` for compatibility. Microsoft .NET 8 runtime support ended on November 10, 2026. Prefer a supported .NET 10 runtime for production and review the hosting application's own lifecycle and security controls.
 
-## Formatting-aware PDF (v2 foundation)
+
+## Formatting-aware PDF (v2)
 
 PDF conversion can now carry over **supported RGB cell backgrounds and text colors, bold/italic text, horizontal alignment and proportional Excel column widths**. It is opt-in to preserve the previous rendering behavior.
 
