@@ -289,7 +289,9 @@ public static partial class ExcelConverter
         if (headers.Count == 0)
             throw new InvalidDataException("The worksheet has no columns.");
         return new SelectedWorksheet(headers, displayRows,
-            typedRows ?? Array.Empty<IReadOnlyList<object?>>());
+            typedRows is null
+                ? (IReadOnlyList<IReadOnlyList<object?>>)Array.Empty<IReadOnlyList<object?>>()
+                : typedRows);
     }
 
     private static string SafeCsvValue(string input, bool protect)
