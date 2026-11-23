@@ -43,6 +43,25 @@ public sealed class ExcelConversionOptions
     /// </summary>
     public bool PdfPreserveCellFormatting { get; set; }
 
+    /// <summary>
+    /// Embed PNG/JPEG worksheet pictures anchored to the selected cells when
+    /// PdfPreserveCellFormatting is enabled. Pictures are fitted inside their
+    /// anchor cell rather than positioned as floating Excel objects.
+    /// Disabled by default for backward compatibility.
+    /// </summary>
+    public bool PdfIncludeEmbeddedImages { get; set; }
+
+    /// <summary>
+    /// Maximum permitted compressed bytes for one embedded image (4 MiB by default).
+    /// This limit prevents loading arbitrarily large pictures into the renderer.
+    /// </summary>
+    public int PdfMaxEmbeddedImageBytes { get; set; } = 4 * 1024 * 1024;
+
+    /// <summary>
+    /// Maximum number of cell-anchored pictures to embed (32 by default).
+    /// </summary>
+    public int PdfMaxEmbeddedImages { get; set; } = 32;
+
     /// <summary>Use a landscape page in Word exports.</summary>
     public bool WordLandscape { get; set; }
 
