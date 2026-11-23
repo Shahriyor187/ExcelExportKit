@@ -6,7 +6,7 @@
 
 A .NET library for converting Excel worksheets (`.xlsx`) to **CSV, JSON, PDF, or Word (DOCX)**, including worksheet selection and batch exports.
 
-> **Release note:** The source branch contains a prepared **2.0.0 stable release candidate** for final validation, but this is **not a published NuGet release**. The NuGet package listing may still contain an older version. Verify the actual installed package version before relying on new options.
+> **Versioning:** Install **ExcelExportKit 2.0.0 or newer** to use the v2 features described below. The GitHub source branch and the latest version actually available on NuGet.org can differ; check the installed package version rather than assuming a source branch is already published.
 > **Runtime support:** The package still targets both `net8.0` and `net10.0` for compatibility. Microsoft .NET 8 runtime support ended on November 10, 2026. Prefer a supported .NET 10 runtime for production and review the hosting application's own lifecycle and security controls.
 
 
