@@ -2,8 +2,8 @@
 
 This checklist prepares the package for **v2.0.0**. It is not a declaration
 that v2 is shipped, and must not be used as evidence that NuGet contains the
-current master branch. The repository currently keeps its declared package
-version at 1.2.0; changing it and publishing are separate release steps.
+current master branch. The release-candidate branch declares `2.0.0-rc.1`; publishing is a
+separate manual action. The stable v2.0.0 package is not yet published.
 
 ## Shipping gates
 
@@ -26,15 +26,36 @@ version at 1.2.0; changing it and publishing are separate release steps.
 - [ ] Inspect any new security advisories and known limitations for ClosedXML,
       OpenXML SDK and TerraPDF. No automated vulnerability audit is a substitute.
 - [ ] Review public API compatibility and confirm the intended major version.
-- [ ] Change the version to 2.0.0 in ExcelExportKit.csproj and adjust
-      .github/workflows/publish.yml manual workflow input default accordingly.
+- [x] Prepare the `2.0.0-rc.1` candidate version, leaving NuGet publishing disabled.
+- [ ] After release review, switch to stable `2.0.0` and revalidate on its exact commit.
 - [ ] Update CHANGELOG.md release date and replace this pending checklist.
-- [ ] Build the .nupkg/.snupkg, inspect the README, license and DLLs for both
-      target frameworks; test a clean consumer using *only* the local package
-      source before release.
-- [ ] Obtain approval for publishing v2.0.0 to NuGet.org, then trigger the
-      manual trusted-publishing workflow and verify the public NuGet listing.
+- [ ] Build the candidate .nupkg/.snupkg, inspect README, license, both DLLs
+      and package version. Test clean .NET 8 and .NET 10 consumers against the
+      **locally built candidate** (with a package-source mapping that prevents
+      silent fallback to a public version).
+- [ ] Complete direct/transitive NuGet advisory checks, reviewing any findings
+      or audit-feed access failures before release.
+- [ ] Obtain explicit approval to publish stable v2.0.0 to NuGet.org, then
+      trigger the guarded manual trusted-publishing workflow from the reviewed
+      stable release commit and verify the public NuGet listing.
 - [ ] Create a GitHub tag/release after publication and publish release notes.
+
+## Release-candidate procedure
+
+1. CI must pass on the candidate branch: .NET 8/10 tests, package audit,
+   local NuGet consumer installations and PDF visual regression.
+2. Inspect the generated `ExcelExportKit.2.0.0-rc.1.nupkg` and `.snupkg`
+   artifacts from Actions; this is verification, **not** publication.
+3. Export the same visual-fixture `.xlsx` workbooks independently using
+   Microsoft Excel to PDFs, record Excel version, print settings and fonts,
+   and review rendered image differences against the library output.
+4. Verify representative real-world workbooks and server-side resource limits.
+5. Only after all gates and explicit release approval, create a separate
+   stable-version change and execute the protected NuGet publishing workflow.
+
+The publishing workflow requests the exact version and a `PUBLISH`
+confirmation; it is **manual**. A passed CI workflow is not authorization
+to publish.
 
 ## Opt-in safeguards for untrusted XLSX
 
