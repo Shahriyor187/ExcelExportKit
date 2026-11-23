@@ -24,8 +24,12 @@ separate manual action. The stable v2.0.0 package is not yet published.
       review elapsed time and per-format process peak working set.
       All three runs passed on 2026-11-23.
       The 100K scenario benchmarks CSV/JSON only (not PDF/Word).
-- [ ] Benchmark at least one actual customer workbook with permission, using
-      no secret or personal data in CI artifacts.
+- [ ] Validate at least one representative real-world workbook with permission,
+      locally using the release probe below. Do not commit the workbook or
+      converted outputs. Only sanitized diagnostic metadata may be shared.
+- [x] Add a synthetic production-like multi-sheet invoice integration test
+      spanning CSV, typed JSON, styled PDF and DOCX with Unicode, numeric and
+      Boolean fields. This supplements but does not replace the real-workbook gate.
 - [ ] Review security/zip-input limits for server usage and make sure upstream
       upload limits, request timeouts, concurrency controls, and storage quotas
       are enforced by the hosting application.
@@ -62,6 +66,39 @@ separate manual action. The stable v2.0.0 package is not yet published.
 The publishing workflow requests the exact version and a `PUBLISH`
 confirmation; it is **manual**. A passed CI workflow is not authorization
 to publish.
+
+## Privacy-conscious real-workbook release probe
+
+A local-only command-line probe is available under
+`tests/ExcelExportKit.ReleaseProbe` to help validate a representative workbook
+without uploading its contents. It converts a selected sheet using the public
+options API and enforces conservative preflight limits (20 MiB file,
+100 MiB expanded ZIP, 2,048 entries and 250,000 selected cells).
+
+Example (Windows PowerShell; run from a local repository checkout):
+
+```powershell
+dotnet run -c Release --project tests/ExcelExportKit.ReleaseProbe -- "C:\\Work\\sample.xlsx" --sheet "Report" --formats csv,json,pdf,docx --report release-probe.json
+```
+
+The probe deletes its converted output files after checking that they were
+created. It logs **only** each format's success, elapsed time, output size,
+exception *type*, and a cumulative process peak-memory measurement. It does
+not print workbook paths, worksheet values, sheet names, or exception messages.
+The optional report is local unless the user explicitly shares it; no report
+or workbook is automatically uploaded anywhere.
+
+**Important:** This is not a complete integrity or security audit. It checks
+file signatures for PDF/DOCX and nonempty outputs, not visual appearance or
+cell-by-cell equivalence. It processes input in-memory through ClosedXML and
+must not be used on confidential or untrusted workbooks without appropriate
+local safeguards. If real data are sensitive, use a synthetic or anonymized
+equivalent and inspect the four outputs locally before sharing any diagnostics.
+
+The 2026-11-23 Excel LTSC comparisons confirmed synthetic fixture content
+and print-section order but found layout differences, including scaling and
+pagination. Approximate Excel printing remains an explicitly documented
+limitation for stable v2.
 
 ## Opt-in safeguards for untrusted XLSX
 
@@ -123,8 +160,8 @@ Runs: [1K](https://github.com/Shahriyor187/ExcelExportKit/actions/runs/451460583
 [100K](https://github.com/Shahriyor187/ExcelExportKit/actions/runs/45146702987).
 These measurements cannot be compared directly with the older cold,
 single-process figures or generalized to arbitrary documents, production
-concurrency, or hardware. A real workbook and independent Excel PDF
-references remain outstanding.
+concurrency, or hardware. A representative real-world workbook validation remains outstanding.
+Independent synthetic Excel PDF comparisons have been reviewed and documented.
 
 ## Updated measurement protocol (post-baseline)
 
@@ -178,6 +215,8 @@ The GitHub Actions manual workflow uses the same program.
   for highly styled or complex worksheets.
 - Excel chart rendering, floating drawings, fit-to-page, and arbitrary paper
   sizes are not implemented.
-- Four synthetic fixtures have now been reviewed against Microsoft Excel LTSC, but their independently generated PDFs are not committed to the repository. Advanced print-settings references still need review.
-- The benchmark infrastructure exists, but measured results require running
-  the harness. Do not claim improvements without before/after measurements.
+- Four original synthetic fixtures and a separate advanced print-settings fixture
+  have been reviewed against Excel LTSC. The independently generated reference
+  PDFs are not committed publicly, and layout differences remain.
+- The 1K, 10K and 100K isolated benchmarks have been run; their observed
+  medians are environment-specific, not performance guarantees.
