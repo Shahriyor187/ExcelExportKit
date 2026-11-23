@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
 
     <PackageId>ExcelExportKit</PackageId>
-    <Version>2.0.0-rc.1</Version>
+    <Version>2.0.0</Version>
     <Authors>Shahriyor Murodilov</Authors>
     <Description>Convert Excel worksheets to CSV, typed JSON, styled PDF and Word, with worksheet selection, print settings, embedded images and opt-in input limits.</Description>
     <PackageTags>excel;xlsx;csv;json;pdf;word;docx;conversion;export;pdf-export;spreadsheet</PackageTags>
