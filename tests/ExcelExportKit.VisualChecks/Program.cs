@@ -108,7 +108,51 @@ await RenderFixture("image-anchor", book =>
     sheet.AddPicture(jpeg, ClosedXML.Excel.Drawings.XLPictureFormat.Jpeg).MoveTo(sheet.Cell("B3"));
 });
 
-Console.WriteLine("Created four XLSX/PDF fixture pairs in " + outputDirectory);
+await RenderFixture("print-layout", book =>
+{
+    var sheet = book.AddWorksheet("Print Layout");
+    sheet.Cell("A1").Value = "Section";
+    sheet.Cell("B1").Value = "Item";
+    sheet.Cell("C1").Value = "Score";
+    sheet.Cell("D1").Value = "Status";
+    sheet.Cell("A2").Value = "Print section";
+    sheet.Cell("B2").Value = "Report title row";
+    sheet.Cell("C2").Value = "Scale 85%";
+    sheet.Cell("D2").Value = "Landscape";
+    sheet.Range("A1:D1").Style.Fill.BackgroundColor = XLColor.FromHtml("#25466A");
+    sheet.Range("A1:D1").Style.Font.FontColor = XLColor.White;
+    sheet.Range("A1:D2").Style.Font.Bold = true;
+    sheet.Range("A2:D2").Style.Fill.BackgroundColor = XLColor.FromHtml("#DCEAF5");
+
+    for (var i = 1; i <= 32; i++)
+    {
+        var row = i + 2;
+        sheet.Cell(row, 1).Value = i <= 16 ? "Part A" : "Part B";
+        sheet.Cell(row, 2).Value = "Item " + i;
+        sheet.Cell(row, 3).Value = 1100 + i * 9;
+        sheet.Cell(row, 4).Value = i % 4 == 0 ? "Review" : "Complete";
+        if (i % 2 == 0)
+            sheet.Range(row, 1, row, 4).Style.Fill.BackgroundColor =
+                XLColor.FromHtml("#F0F5FA");
+    }
+
+    sheet.Column(1).Width = 19;
+    sheet.Column(2).Width = 25;
+    sheet.Column(3).Width = 16;
+    sheet.Column(4).Width = 23;
+    sheet.PageSetup.PrintAreas.Add("A1:D34");
+    sheet.PageSetup.PageOrientation = XLPageOrientation.Landscape;
+    sheet.PageSetup.Scale = 85;
+    sheet.PageSetup.Margins.Top = 0.55;
+    sheet.PageSetup.Margins.Bottom = 0.60;
+    sheet.PageSetup.Margins.Left = 0.40;
+    sheet.PageSetup.Margins.Right = 0.45;
+    sheet.PageSetup.SetRowsToRepeatAtTop(1, 2);
+    sheet.PageSetup.AddHorizontalPageBreak(18);
+    sheet.PageSetup.AddVerticalPageBreak(2);
+});
+
+Console.WriteLine("Created five XLSX/PDF fixture pairs in " + outputDirectory);
 return 0;
 
 async Task RenderFixture(string name, Action<XLWorkbook> create)
@@ -125,7 +169,8 @@ async Task RenderFixture(string name, Action<XLWorkbook> create)
         DocumentTitle = "Visual fixture: " + name,
         PdfPreserveCellFormatting = true,
         PdfIncludeEmbeddedImages = name == "image-anchor",
-        PdfLandscape = name == "merged-header"
+        PdfLandscape = name == "merged-header",
+        PdfUseWorksheetPrintSettings = name == "print-layout"
     });
     var signature = new byte[5];
     await using var file = File.OpenRead(pdf);

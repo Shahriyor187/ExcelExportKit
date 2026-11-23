@@ -81,12 +81,13 @@ breaking merged-cell layout. Existing PDF output is unchanged unless opted in.
 
 ## PDF visual regression checks
 
-The repository has a dedicated [PDF visual regression workflow](.github/workflows/pdf-visual.yml) that creates four reproducible spreadsheet/PDF pairs:
+The repository has a dedicated [PDF visual regression workflow](.github/workflows/pdf-visual.yml) that creates five reproducible spreadsheet/PDF pairs:
 
 - `merged-header` — colored merged heading, border weights, custom column widths and alignment
 - `vertical-merge` — two vertically merged groups with data beside row-spanning cells
 - `multi-page` — 119 records to exercise PDF pagination and repeated headers
 - `image-anchor` — visibly colored PNG and JPEG images anchored in different table cells
+- `print-layout` — opt-in landscape print area, 85% scaling, custom margins, two repeated title rows and both horizontal/vertical manual breaks
 
 CI rasterizes each PDF with Poppler at 110 DPI, verifies expected text and pagination, checks that both colored embedded images are visible in rendered pixels, and uploads the source workbooks, PDFs, PNG pages, a JSON summary and per-page pixel-difference masks. On pull requests, it compares against the base branch **when the base contains the fixture generator**. The initial bootstrap PR therefore produces review artifacts without a comparison.
 
