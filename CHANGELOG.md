@@ -1,6 +1,8 @@
 # Changelog
 
-## 2.0.0 — Planned, not published
+## 2.0.0-rc.1 — Release candidate (not published; 2026-11-23)
+
+This is a **candidate build for testing**, not the final stable release.
 
 ### Development changes
 - Styled PDF conversion with merged cells, border/font styles, images and an opt-in print-layout mode.
@@ -10,11 +12,13 @@
 - Reproducible 1K/10K/100K synthetic conversion benchmark harness and manual GitHub Actions benchmark workflow.
 - Realistic invoice and larger report integration fixtures.
 - Release-readiness checklist for performance/security review and v2 packaging.
+- Incremental CSV and JSON output writing, reduced duplicate typed-cell allocations, and isolated per-format benchmarks.
+- Real packed-package .NET 8 and .NET 10 consumer tests, direct/transitive NuGet advisory checks, and guarded publishing workflow.
 
 ### Status
-- No v2.0.0 NuGet package has been published by this change.
-- Change the project version only when preparing an approved release candidate.
-- Real-world benchmark results, independent Excel reference PDFs and final release review remain gates.
+- Project version is now `2.0.0-rc.1` on the candidate branch only; no NuGet publication is performed by this PR.
+- Independent Excel reference PDFs, representative user-workbook testing and release approval remain outstanding gates.
+- Before stable publication, change version to `2.0.0` in a separate approved release commit.
 
 ## 1.2.0 — Unreleased
 
