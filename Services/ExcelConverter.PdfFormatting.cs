@@ -373,5 +373,6 @@ public static partial class ExcelConverter
     internal sealed record PdfFormattingSnapshot(
         IReadOnlyList<double> ColumnWidths,
         PdfStyledRow Header,
-        IReadOnlyList<PdfStyledRow> Rows);
+        IReadOnlyList<PdfStyledRow> Rows,
+        IReadOnlyList<PdfStyledRow>? AdditionalHeaders = null);
 }
