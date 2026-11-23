@@ -139,6 +139,7 @@ public static partial class ExcelConverter
         if (options.WorksheetIndex < 0)
             throw new ArgumentOutOfRangeException(nameof(options.WorksheetIndex));
 
+        ValidateWorkbookInput(filePath, options);
         using var workbook = new XLWorkbook(filePath);
         var worksheet = options.WorksheetName is not null
             ? workbook.Worksheets.FirstOrDefault(w =>
@@ -157,6 +158,7 @@ public static partial class ExcelConverter
         var lastRow = used.RangeAddress.LastAddress.RowNumber;
         var firstCol = used.RangeAddress.FirstAddress.ColumnNumber;
         var lastCol = used.RangeAddress.LastAddress.ColumnNumber;
+        ValidateSelectedCells(firstRow, lastRow, firstCol, lastCol, options);
 
         // A merge is allowed only when its entire rectangle is selected.
         // Cropped spans or a vertical merge from the repeating header into
@@ -320,7 +322,7 @@ public static partial class ExcelConverter
             // Never remove rows occupied by a rowspan: that would cause the
             // TerraPDF table to put subsequent cells in the wrong positions.
             if (options.SkipEmptyRows &&
-                styled.Cells.All(c => string.IsNullOrWhiteSpace(c.Text)) &&
+                styled.Cells.All(c => string.IsNullOrWhiteSpace(c.Text) && c.Picture is null) &&
                 !styled.ContainsMergedCells)
                 continue;
             rows.Add(styled);

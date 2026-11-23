@@ -200,6 +200,7 @@ public static partial class ExcelConverter
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
         if (!File.Exists(filePath))
             throw new FileNotFoundException("The Excel input file was not found.", filePath);
+        ValidateWorkbookInput(filePath, options);
         using var workbook = new XLWorkbook(filePath);
         if (workbook.Worksheets.Count == 0)
             throw new InvalidDataException("The workbook contains no worksheets.");
@@ -219,6 +220,7 @@ public static partial class ExcelConverter
         var lastRow = usedRange.RangeAddress.LastAddress.RowNumber;
         var firstColumn = usedRange.RangeAddress.FirstAddress.ColumnNumber;
         var lastColumn = usedRange.RangeAddress.LastAddress.ColumnNumber;
+        ValidateSelectedCells(firstRow, lastRow, firstColumn, lastColumn, options);
         var rawHeaders = Enumerable.Range(firstColumn, lastColumn - firstColumn + 1)
             .Select(col => worksheet.Cell(firstRow, col).GetFormattedString(CultureInfo.InvariantCulture).Trim())
             .ToList();

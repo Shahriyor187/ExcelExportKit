@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.0.0 — Planned, not published
+
+### Development changes
+- Styled PDF conversion with merged cells, border/font styles, images and an opt-in print-layout mode.
+- PDF visual regression checks with optional independently generated Excel PDF references.
+- Opt-in XLSX input safeguards: compressed and expanded file sizes, archive entry count and selected worksheet cell count.
+- Fix image-only styled PDF rows being accidentally omitted by `SkipEmptyRows`.
+- Reproducible 1K/10K/100K synthetic conversion benchmark harness and manual GitHub Actions benchmark workflow.
+- Realistic invoice and larger report integration fixtures.
+- Release-readiness checklist for performance/security review and v2 packaging.
+
+### Status
+- No v2.0.0 NuGet package has been published by this change.
+- Change the project version only when preparing an approved release candidate.
+- Real-world benchmark results, independent Excel reference PDFs and final release review remain gates.
+
 ## 1.2.0 — Unreleased
 
 ### Added

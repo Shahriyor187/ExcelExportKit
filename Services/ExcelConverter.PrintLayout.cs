@@ -117,6 +117,7 @@ public static partial class ExcelConverter
             throw new ArgumentOutOfRangeException(nameof(options.PdfPrintScalePercent),
                 "Print scale must be between 10% and 400%.");
 
+        ValidateWorkbookInput(filePath, options);
         using var workbook = new XLWorkbook(filePath);
         var worksheet = options.WorksheetName is not null
             ? workbook.Worksheets.FirstOrDefault(w =>
@@ -176,6 +177,7 @@ public static partial class ExcelConverter
         {
             int r1 = region.FirstAddress.RowNumber, r2 = region.LastAddress.RowNumber;
             int c1 = region.FirstAddress.ColumnNumber, c2 = region.LastAddress.ColumnNumber;
+            ValidateSelectedCells(r1, r2, c1, c2, options);
 
             // Obtain a stable repeating header from the region's first row,
             // or the workbook's dedicated print-title row, if provided.

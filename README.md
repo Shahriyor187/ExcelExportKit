@@ -6,6 +6,8 @@
 
 A .NET library for converting Excel worksheets (`.xlsx`) to **CSV, JSON, PDF, or Word (DOCX)**, including worksheet selection and batch exports.
 
+> **Release note:** New features described on `master` may not be available in the NuGet version you have installed. The v2 hardening work is under development; check the package version before relying on a new option.
+
 ## Formatting-aware PDF (v2 foundation)
 
 PDF conversion can now carry over **supported RGB cell backgrounds and text colors, bold/italic text, horizontal alignment and proportional Excel column widths**. It is opt-in to preserve the previous rendering behavior.
@@ -19,7 +21,7 @@ await ExcelConverter.ToPDFAsync("report.xlsx", "report.pdf",
     });
 ```
 
-The formatting-aware PDF renderer now supports **fully selected horizontal and vertical merged cells**, solid per-edge borders, approximate Excel row heights, font sizes, colors and basic alignment. Merges crossing a selected range or from the repeated header into data are explicitly rejected. Dashed/double border styles are approximated with solid strokes. Embedded PNG/JPEG pictures are available separately as an opt-in, cell-anchored feature (below). Charts, exact print areas, manual page breaks, and pixel-perfect Excel pagination are not supported.
+The formatting-aware PDF renderer now supports **fully selected horizontal and vertical merged cells**, solid per-edge borders, approximate Excel row heights, font sizes, colors and basic alignment. Merges crossing a selected range or from the repeated header into data are explicitly rejected. Dashed/double border styles are approximated with solid strokes. Embedded PNG/JPEG pictures are available separately as an opt-in, cell-anchored feature (below). Charts and pixel-perfect Excel pagination are not supported. Print areas and manual page breaks are available in the separate opt-in print-layout mode below.
 
 ## Embed cell-anchored PNG/JPEG images in styled PDFs
 
@@ -128,6 +130,37 @@ await ExcelConverter.ToJsonAsync("results.xlsx", "results.json",
 
 This is an in-memory ClosedXML reader. It does not yet provide forward-only extraction for extremely large uploaded workbooks.
 
+## Safeguards and performance validation
+
+For untrusted XLSX input, options-based conversion supports optional limits
+for the compressed input size, expanded XLSX archive bytes, archive entry
+count and selected cell count. **All are disabled by default** to preserve
+existing conversion behavior. Set your own limits based on the application's
+upload and memory budgets.
+
+```csharp
+await ExcelConverter.ToJsonAsync("uploaded.xlsx", "safe.json",
+    new ExcelConversionOptions
+    {
+        MaxWorkbookFileBytes = 20 * 1024 * 1024,
+        MaxUncompressedWorkbookBytes = 100 * 1024 * 1024,
+        MaxWorkbookArchiveEntries = 2048,
+        MaxSelectedCells = 250_000
+    });
+```
+
+These preflight checks do not turn ClosedXML into a streaming or sandboxed
+parser. Web applications should also enforce upload limits, authentication,
+rate limits, concurrency and timeouts.
+
+A dedicated, manually triggered [Excel conversion benchmark workflow](.github/workflows/benchmarks.yml)
+can profile synthetic 1K, 10K and 100K-row workbooks. It uploads a JSON report
+with times and memory observations; 100K runs benchmark CSV/JSON only. Results
+are **not** performance guarantees or proof of an optimization.
+
+The release gates and known limitations are in
+[the v2 release checklist](docs/RELEASE_V2_CHECKLIST.md).
+
 ## Requirements
 
 - .NET 8 or .NET 10
@@ -175,9 +208,10 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE.txt).
 ## Limitations
 
 - The library reads `.xlsx` files, not legacy binary `.xls` files.
-- It converts the first worksheet only; it does not merge multiple worksheets.
-- Values are exported as formatted text, not as strongly typed JSON numbers or dates.
-- PDF and Word output focus on worksheet data; complex Excel styling, charts, images, and formulas are not reproduced as spreadsheet features.
+- By default, conversion uses the first worksheet. Options support named/indexed worksheets and batch conversion; they do not merge sheets into a single output document.
+- JSON remains string-oriented by default; the `PreserveJsonTypes` option emits native numbers and booleans and ISO date strings.
+- PDF can preserve supported styling, cell-anchored PNG/JPEG pictures and selected print-layout features when enabled, but does not support exact Excel printing, charts or floating drawings. Word output is primarily tabular.
+- Spreadsheet formulas are not recalculated as part of conversion; values are taken from the workbook reader.
 
 ## New in 1.2.0
 
