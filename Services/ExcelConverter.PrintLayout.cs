@@ -150,7 +150,9 @@ public static partial class ExcelConverter
         {
             var wb = spreadsheet.WorkbookPart
                 ?? throw new InvalidDataException("XLSX workbook part is missing.");
-            var sheet = (wb.Workbook.Sheets
+            var workbookXml = wb.Workbook
+                ?? throw new InvalidDataException("XLSX workbook XML is missing.");
+            var sheet = (workbookXml.Sheets
                 ?? throw new InvalidDataException("XLSX worksheet metadata is missing."))
                 .Elements<Ss.Sheet>()
                 .FirstOrDefault(s =>
@@ -160,14 +162,16 @@ public static partial class ExcelConverter
                 ?? throw new InvalidDataException("XLSX worksheet relationship is missing.");
             if (wb.GetPartById(relationshipId) is not WorksheetPart part)
                 throw new InvalidDataException("XLSX worksheet part is missing.");
+            var worksheetXml = part.Worksheet
+                ?? throw new InvalidDataException("XLSX worksheet XML is missing.");
             if (options.PdfPrintScalePercent is null &&
-                part.Worksheet.GetFirstChild<Ss.SheetProperties>()?
+                worksheetXml.GetFirstChild<Ss.SheetProperties>()?
                     .PageSetupProperties?.FitToPage?.Value == true)
                 throw new NotSupportedException(
                     "Excel fit-to-N-pages cannot be reproduced by the PDF table renderer. " +
                     "Set PdfPrintScalePercent to use an explicit scaling percentage.");
-            var h = part.Worksheet.Elements<Ss.RowBreaks>().FirstOrDefault();
-            var v = part.Worksheet.Elements<Ss.ColumnBreaks>().FirstOrDefault();
+            var h = worksheetXml.Elements<Ss.RowBreaks>().FirstOrDefault();
+            var v = worksheetXml.Elements<Ss.ColumnBreaks>().FirstOrDefault();
             if (h is not null)
                 foreach (var b in h.Elements<Ss.Break>())
                     if (b.ManualPageBreak?.Value == true && b.Id?.Value is uint index && index > 0)
