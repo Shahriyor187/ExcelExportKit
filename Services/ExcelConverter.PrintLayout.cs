@@ -157,11 +157,11 @@ public static partial class ExcelConverter
             var v = part.Worksheet.Elements<Ss.ColumnBreaks>().FirstOrDefault();
             if (h is not null)
                 foreach (var b in h.Elements<Ss.Break>())
-                    if (b.Id?.Value is uint index && index > 0)
+                    if (b.ManualPageBreak?.Value == true && b.Id?.Value is uint index && index > 0)
                         horizontal.Add(checked((int)index));
             if (v is not null)
                 foreach (var b in v.Elements<Ss.Break>())
-                    if (b.Id?.Value is uint index && index > 0)
+                    if (b.ManualPageBreak?.Value == true && b.Id?.Value is uint index && index > 0)
                         vertical.Add(checked((int)index));
         }
 
