@@ -28,6 +28,12 @@ jobs:
       - name: Build benchmark harness
         run: dotnet build tests/ExcelExportKit.Benchmarks/ExcelExportKit.Benchmarks.csproj --configuration Release
 
+      - name: Smoke-test benchmark isolation (1K rows)
+        run: |
+          python3 tests/ExcelExportKit.Benchmarks/run_benchmarks.py \
+            --dll tests/ExcelExportKit.Benchmarks/bin/Release/net10.0/ExcelExportKit.Benchmarks.dll \
+            --rows 1000 --output "${{ runner.temp }}/benchmark-smoke" --repeats 1
+
       - name: Pack both target frameworks
         run: dotnet pack ExcelExportKit.csproj --configuration Release --no-restore --output ./artifacts
 
