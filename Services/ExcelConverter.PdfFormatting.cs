@@ -98,11 +98,32 @@ public static partial class ExcelConverter
         else if (cell.AlignCenter)
             current = current.AlignCenter();
 
-        var text = current.Text(cell.Text);
-        if (header || cell.Bold) text.Bold();
-        if (cell.Italic) text.Italic();
-        text.FontSize(cell.FontSize);
-        text.FontColor(cell.Foreground ?? (header && cell.Background is null ? "#FFFFFF" : "#111111"));
+        if (cell.Picture is not null)
+        {
+            current.Column(column =>
+            {
+                if (!string.IsNullOrWhiteSpace(cell.Text))
+                {
+                    var caption = column.Item().Text(cell.Text);
+                    if (header || cell.Bold) caption.Bold();
+                    if (cell.Italic) caption.Italic();
+                    caption.FontSize(cell.FontSize);
+                    caption.FontColor(cell.Foreground ??
+                        (header && cell.Background is null ? "#FFFFFF" : "#111111"));
+                }
+                // This image is intentionally IN the cell's flow layout; it is
+                // not a pixel-exact recreation of Excel's floating drawings.
+                column.Item().AlignCenter().Image(cell.Picture.Bytes, cell.Picture.WidthPoints);
+            });
+        }
+        else
+        {
+            var text = current.Text(cell.Text);
+            if (header || cell.Bold) text.Bold();
+            if (cell.Italic) text.Italic();
+            text.FontSize(cell.FontSize);
+            text.FontColor(cell.Foreground ?? (header && cell.Background is null ? "#FFFFFF" : "#111111"));
+        }
     }
 
     /// <summary>
@@ -173,6 +194,69 @@ public static partial class ExcelConverter
         if (used.IsEmpty())
             throw new InvalidDataException("The selected worksheet range does not contain any data.");
 
+        // Images are opt-in because pictures are floating drawings in Excel.
+        // This renderer supports only one PNG/JPEG anchored inside each selected,
+        // unmerged cell. The picture is placed below any existing cell text.
+        var pictures = new Dictionary<(int Row, int Column), PdfCellPicture>();
+        if (options.PdfIncludeEmbeddedImages)
+        {
+            if (!options.PdfPreserveCellFormatting)
+                throw new ArgumentException("Enable PdfPreserveCellFormatting for embedded PDF images.", nameof(options));
+            if (options.PdfMaxEmbeddedImages is < 0 or > 256)
+                throw new ArgumentOutOfRangeException(nameof(options.PdfMaxEmbeddedImages));
+            if (options.PdfMaxEmbeddedImageBytes is < 1024 or > 16 * 1024 * 1024)
+                throw new ArgumentOutOfRangeException(nameof(options.PdfMaxEmbeddedImageBytes));
+
+            var count = 0;
+            foreach (var picture in worksheet.Pictures)
+            {
+                count++;
+                if (count > options.PdfMaxEmbeddedImages)
+                    throw new InvalidDataException(
+                        $"Workbook contains more than {options.PdfMaxEmbeddedImages} pictures.");
+
+                // Free-floating pictures have no meaningful cell anchor.
+                if (picture.Placement.ToString() == "FreeFloating")
+                    throw new NotSupportedException(
+                        $"Picture '{picture.Name}' is free-floating; only cell-anchored pictures are supported.");
+                var anchorCell = picture.TopLeftCell;
+                var row = anchorCell.Address.RowNumber;
+                var col = anchorCell.Address.ColumnNumber;
+                if (row < firstRow || row > lastRow || col < firstCol || col > lastCol)
+                    throw new NotSupportedException(
+                        $"Picture '{picture.Name}' is outside the selected PDF cell range.");
+                if (occupied.Contains((row, col)) || anchors.ContainsKey((row, col)))
+                    throw new NotSupportedException(
+                        $"Picture '{picture.Name}' overlaps a merged cell, which is not supported.");
+                if (picture.Left != 0 || picture.Top != 0 ||
+                    picture.GetOffset(ClosedXML.Excel.Drawings.XLMarkerPosition.TopLeft).X != 0 ||
+                    picture.GetOffset(ClosedXML.Excel.Drawings.XLMarkerPosition.TopLeft).Y != 0)
+                    throw new NotSupportedException(
+                        $"Picture '{picture.Name}' uses an offset; position it at a cell origin.");
+                if (!pictures.TryAdd((row, col), null!))
+                    throw new NotSupportedException(
+                        $"Multiple pictures in cell {anchorCell.Address} are not supported.");
+
+                var format = picture.Format.ToString();
+                if (!string.Equals(format, "Png", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(format, "Jpeg", StringComparison.OrdinalIgnoreCase))
+                    throw new NotSupportedException(
+                        $"Picture '{picture.Name}' format {format} is unsupported. Use PNG or JPEG.");
+                if (picture.ImageStream.Length > options.PdfMaxEmbeddedImageBytes)
+                    throw new InvalidDataException(
+                        $"Picture '{picture.Name}' exceeds the maximum byte size.");
+                if (picture.Width is < 1 or > 4096 || picture.Height is < 1 or > 4096)
+                    throw new InvalidDataException(
+                        $"Picture '{picture.Name}' has unsupported dimensions.");
+
+                var bytes = picture.ImageStream.ToArray();
+                // Limit image width to fit the cell in the PDF. 96 DPI source
+                // pixels convert to 72-point PDF units, capped for narrow cells.
+                var targetWidth = Math.Clamp(picture.Width * 0.75, 20, 110);
+                pictures[(row, col)] = new PdfCellPicture(bytes, targetWidth);
+            }
+        }
+
         var widths = new List<double>();
         for (var col = firstCol; col <= lastCol; col++)
             widths.Add(Math.Clamp(worksheet.Column(col).Width, 3, 80));
@@ -219,7 +303,8 @@ public static partial class ExcelConverter
                     AsPdfBorder(border.TopBorder, border.TopBorderColor),
                     AsPdfBorder(bottomEdge.BottomBorder, bottomEdge.BottomBorderColor),
                     AsPdfBorder(border.LeftBorder, border.LeftBorderColor),
-                    AsPdfBorder(rightEdge.RightBorder, rightEdge.RightBorderColor)));
+                    AsPdfBorder(rightEdge.RightBorder, rightEdge.RightBorderColor),
+                    pictures.GetValueOrDefault((rowIndex, col))));
             }
             return new PdfStyledRow(result, containsMergedCells);
         }
@@ -269,12 +354,15 @@ public static partial class ExcelConverter
 
     internal sealed record PdfCellBorder(double Width, string Color);
 
+    internal sealed record PdfCellPicture(byte[] Bytes, double WidthPoints);
+
     internal sealed record PdfStyledCell(
         string Text, string? Background, string? Foreground,
         bool Bold, bool Italic, bool AlignRight, bool AlignCenter,
         double FontSize, double VerticalPadding, int ColumnSpan, int RowSpan,
         PdfCellBorder? TopBorder, PdfCellBorder? BottomBorder,
-        PdfCellBorder? LeftBorder, PdfCellBorder? RightBorder);
+        PdfCellBorder? LeftBorder, PdfCellBorder? RightBorder,
+        PdfCellPicture? Picture);
 
     internal sealed record PdfStyledRow(
         IReadOnlyList<PdfStyledCell> Cells, bool ContainsMergedCells);
