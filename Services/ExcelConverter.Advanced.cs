@@ -37,25 +37,32 @@ public static partial class ExcelConverter
         ConvertWithCancellationAsync(outputFile, cancellationToken,
             path => ToCSVAsyncCore(inputFile, path, options, cancellationToken));
 
-    private static async Task ToCSVAsyncCore(string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken)
+    /// <summary>Converts a selected worksheet to TSV, using tab separators and CSV-style quoting.</summary>
+    public static Task ToTSVAsync(string inputFile, string outputFile,
+        ExcelConversionOptions? options = null, CancellationToken cancellationToken = default) =>
+        ConvertWithCancellationAsync(outputFile, cancellationToken,
+            path => ToCSVAsyncCore(inputFile, path, options ?? new ExcelConversionOptions(), cancellationToken, '\t'));
+
+    private static async Task ToCSVAsyncCore(string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken, char? delimiterOverride = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(options);
-        ValidateCsvDelimiter(options.CsvDelimiter);
+        var delimiter = delimiterOverride ?? options.CsvDelimiter;
+        ValidateCsvDelimiter(delimiter);
         var sheet = ReadWorksheet(inputFile, options, cancellationToken);
         // Keep only one CSV row in the output buffer instead of duplicating the
         // entire workbook as a single StringBuilder in memory.
         await using var writer = new StreamWriter(outputFile, false, Utf8WithoutBom);
         var buffer = new StringBuilder();
         AppendSelectedCsvRow(buffer, sheet.Headers.Select(
-            heading => SafeCsvValue(heading, options.CsvProtectFormulas)), options.CsvDelimiter);
+            heading => SafeCsvValue(heading, options.CsvProtectFormulas)), delimiter);
         await writer.WriteAsync(buffer.ToString().AsMemory(), cancellationToken).ConfigureAwait(false);
         foreach (var row in sheet.Rows)
         {
             cancellationToken.ThrowIfCancellationRequested();
             buffer.Clear();
             AppendSelectedCsvRow(buffer, row.Select(
-                value => SafeCsvValue(value, options.CsvProtectFormulas)), options.CsvDelimiter);
+                value => SafeCsvValue(value, options.CsvProtectFormulas)), delimiter);
             await writer.WriteAsync(buffer.ToString().AsMemory(), cancellationToken).ConfigureAwait(false);
         }
         await writer.FlushAsync(cancellationToken).ConfigureAwait(false);
@@ -231,8 +238,8 @@ public static partial class ExcelConverter
         ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
         ArgumentException.ThrowIfNullOrWhiteSpace(format);
         var normalized = format.ToLowerInvariant();
-        if (normalized is not ("csv" or "json" or "pdf" or "docx"))
-            throw new ArgumentException("Format must be csv, json, pdf, or docx.", nameof(format));
+        if (normalized is not ("csv" or "tsv" or "json" or "pdf" or "docx"))
+            throw new ArgumentException("Format must be csv, tsv, json, pdf, or docx.", nameof(format));
         if (!File.Exists(inputFile))
             throw new FileNotFoundException("Workbook not found.", inputFile);
 
@@ -257,6 +264,7 @@ public static partial class ExcelConverter
                 switch (normalized)
                 {
                     case "csv": await ToCSVAsync(inputFile, destination, options, cancellationToken).ConfigureAwait(false); break;
+                    case "tsv": await ToTSVAsync(inputFile, destination, options, cancellationToken).ConfigureAwait(false); break;
                     case "json": await ToJsonAsync(inputFile, destination, options, cancellationToken).ConfigureAwait(false); break;
                     case "pdf": await ToPDFAsync(inputFile, destination, options, cancellationToken).ConfigureAwait(false); break;
                     case "docx": await ToWordAsync(inputFile, destination, options, cancellationToken).ConfigureAwait(false); break;
@@ -280,8 +288,8 @@ public static partial class ExcelConverter
         ArgumentNullException.ThrowIfNull(inputFiles);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
         var normalized = format?.ToLowerInvariant() ?? throw new ArgumentNullException(nameof(format));
-        if (normalized is not ("csv" or "json" or "pdf" or "docx"))
-            throw new ArgumentException("Format must be csv, json, pdf, or docx.", nameof(format));
+        if (normalized is not ("csv" or "tsv" or "json" or "pdf" or "docx"))
+            throw new ArgumentException("Format must be csv, tsv, json, pdf, or docx.", nameof(format));
         Directory.CreateDirectory(outputDirectory);
         var results = new List<ExcelConversionResult>();
         foreach (var file in inputFiles)
@@ -297,6 +305,7 @@ public static partial class ExcelConverter
                 switch (normalized)
                 {
                     case "csv": await ToCSVAsync(file, path, new ExcelConversionOptions { CsvProtectFormulas = false }, cancellationToken).ConfigureAwait(false); break;
+                    case "tsv": await ToTSVAsync(file, path, new ExcelConversionOptions(), cancellationToken).ConfigureAwait(false); break;
                     case "json": await ToJsonAsync(file, path, new ExcelConversionOptions(), cancellationToken).ConfigureAwait(false); break;
                     case "pdf": await ToPDFAsync(file, path, new ExcelConversionOptions(), cancellationToken).ConfigureAwait(false); break;
                     case "docx": await ToWordAsync(file, path, new ExcelConversionOptions(), cancellationToken).ConfigureAwait(false); break;
