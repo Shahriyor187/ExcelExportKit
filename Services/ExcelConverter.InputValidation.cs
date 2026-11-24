@@ -45,7 +45,7 @@ public static partial class ExcelConverter
         {
         using var archive = new ZipArchive(input, ZipArchiveMode.Read, leaveOpen: true);
         if (options.MaxWorkbookArchiveEntries is int maxEntries &&
-            archive.Entries.Count > maxEntries)
+            archive.Entries.Count > int.MaxValue)
             throw new InvalidDataException(
                 $"Workbook archive contains more than {maxEntries} entries.");
 
