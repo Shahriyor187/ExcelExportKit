@@ -151,6 +151,11 @@ public static partial class ExcelConverter
             return WriteFormattingAwarePdfAsync(inputFile, outputFile, options, cancellationToken);
 
         var sheet = ReadWorksheet(inputFile, options, cancellationToken);
+        return RenderSelectedPdfAsync(sheet, outputFile, options, cancellationToken);
+    }
+
+    private static Task RenderSelectedPdfAsync(SelectedWorksheet sheet, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken)
+    {
         return Task.Run(() =>
         {
             TerraPDF.Core.Document.Create(document =>
@@ -225,7 +230,9 @@ public static partial class ExcelConverter
         }
         ArgumentException.ThrowIfNullOrWhiteSpace(outputFile);
         var fullPath = Path.GetFullPath(outputFile);
-        var temporary = Path.Combine(Path.GetDirectoryName(fullPath)!, $".export-{Guid.NewGuid():N}{Path.GetExtension(fullPath)}");
+        // Stage on the destination filesystem: a rename must not cross volumes.
+        var stageDirectory = CreatePrivateStageDirectory(Path.GetDirectoryName(fullPath)!);
+        var temporary = Path.Combine(stageDirectory, "output" + Path.GetExtension(fullPath));
         try
         {
             await convert(temporary).ConfigureAwait(false);
@@ -234,8 +241,7 @@ public static partial class ExcelConverter
         }
         finally
         {
-            if (File.Exists(temporary))
-                File.Delete(temporary);
+            Directory.Delete(stageDirectory, recursive: true);
         }
     }
 
