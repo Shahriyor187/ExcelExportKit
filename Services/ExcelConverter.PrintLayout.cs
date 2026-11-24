@@ -18,6 +18,11 @@ public static partial class ExcelConverter
         string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken)
     {
         var layout = ReadWorksheetPrintLayout(inputFile, options, cancellationToken);
+        return RenderWorksheetPrintPdfAsync(layout, outputFile, options, cancellationToken);
+    }
+
+    private static Task RenderWorksheetPrintPdfAsync(PdfPrintLayout layout, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken)
+    {
         return Task.Run(() =>
         {
             TerraPDF.Core.Document.Create(document =>
@@ -115,6 +120,14 @@ public static partial class ExcelConverter
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(options);
+        using var input = File.OpenRead(filePath);
+        return ReadWorksheetPrintLayout(input, options, cancellationToken);
+    }
+
+    private static PdfPrintLayout ReadWorksheetPrintLayout(Stream input, ExcelConversionOptions options, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(options);
         ValidateRowWindow(options);
         if (!options.PdfPreserveCellFormatting)
             throw new ArgumentException(
@@ -124,8 +137,8 @@ public static partial class ExcelConverter
             throw new ArgumentOutOfRangeException(nameof(options.PdfPrintScalePercent),
                 "Print scale must be between 10% and 400%.");
 
-        ValidateWorkbookInput(filePath, options, cancellationToken);
-        using var workbook = new XLWorkbook(filePath);
+        ValidateWorkbookInput(input, options, cancellationToken);
+        using var workbook = new XLWorkbook(new BorrowedStream(input));
         cancellationToken.ThrowIfCancellationRequested();
         var worksheet = options.WorksheetName is not null
             ? workbook.Worksheets.FirstOrDefault(w =>
@@ -154,7 +167,8 @@ public static partial class ExcelConverter
 
         var horizontal = new SortedSet<int>();
         var vertical = new SortedSet<int>();
-        using (var spreadsheet = SpreadsheetDocument.Open(filePath, false))
+        input.Position = 0;
+        using (var spreadsheet = SpreadsheetDocument.Open(new BorrowedStream(input), false))
         {
             var wb = spreadsheet.WorkbookPart
                 ?? throw new InvalidDataException("XLSX workbook part is missing.");
@@ -191,6 +205,7 @@ public static partial class ExcelConverter
         }
 
         var chunks = new List<PdfFormattingSnapshot>();
+        long remainingCells = options.MaxSelectedCells ?? long.MaxValue;
         long remainingSkip = options.RowOffset;
         long remainingTake = options.MaxRows ?? long.MaxValue;
         foreach (var region in regions)
@@ -223,10 +238,18 @@ public static partial class ExcelConverter
                 continue;
             var rowSegments = SplitAtBreaks(rowStart + skip, rowStart + skip + take - 1, horizontal);
             var colSegments = SplitAtBreaks(c1, c2, vertical);
+            if ((long)rowSegments.Count * colSegments.Count > 128 - chunks.Count)
+                throw new NotSupportedException("More than 128 explicit PDF print sections are not supported.");
             foreach (var (cs, ce) in colSegments)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var titleSnapshot = ReadPdfFormatting(filePath, new ExcelConversionOptions
+                var titleCells = (long)(titleLastRow - titleRow + 1) * (ce - cs + 1);
+                // Repeated titles occupy each explicit section, not just the
+                // shared snapshot. Charge them before constructing that snapshot.
+                var repeatedTitleCells = checked(titleCells * rowSegments.Count);
+                if (repeatedTitleCells > remainingCells) throw new InvalidDataException("Print sections exceed the configured selected-cell budget.");
+                remainingCells -= repeatedTitleCells;
+                var titleSnapshot = ReadPdfFormatting(worksheet, new ExcelConversionOptions
                 {
                     WorksheetName = worksheet.Name,
                     RangeAddress = worksheet.Range(titleRow, cs, titleLastRow, ce)
@@ -235,7 +258,8 @@ public static partial class ExcelConverter
                     PdfIncludeEmbeddedImages = options.PdfIncludeEmbeddedImages,
                     PdfMaxEmbeddedImageBytes = options.PdfMaxEmbeddedImageBytes,
                     PdfMaxEmbeddedImages = options.PdfMaxEmbeddedImages,
-                PdfIgnoreImagesOutsideSelectedRange = true
+                MaxSelectedCells = options.MaxSelectedCells,
+                    PdfIgnoreImagesOutsideSelectedRange = true
                 }, cancellationToken);
                 var colTitle = titleSnapshot.Header;
                 var extraTitleRows = titleSnapshot.Rows;
@@ -247,7 +271,10 @@ public static partial class ExcelConverter
                     PdfFormattingSnapshot page;
                     if (rs <= re)
                     {
-                        page = ReadPdfFormatting(filePath, new ExcelConversionOptions
+                        var cells = (long)(re - rs + 1) * (ce - cs + 1);
+                        if (cells > remainingCells) throw new InvalidDataException("Print sections exceed the configured selected-cell budget.");
+                        remainingCells -= cells;
+                        page = ReadPdfFormatting(worksheet, new ExcelConversionOptions
                         {
                             WorksheetName = worksheet.Name,
                             RangeAddress = worksheet.Range(rs, cs, re, ce)
@@ -256,7 +283,8 @@ public static partial class ExcelConverter
                             PdfIncludeEmbeddedImages = options.PdfIncludeEmbeddedImages,
                             PdfMaxEmbeddedImageBytes = options.PdfMaxEmbeddedImageBytes,
                             PdfMaxEmbeddedImages = options.PdfMaxEmbeddedImages,
-                PdfIgnoreImagesOutsideSelectedRange = true,
+                MaxSelectedCells = options.MaxSelectedCells,
+                    PdfIgnoreImagesOutsideSelectedRange = true,
                             SkipEmptyRows = options.SkipEmptyRows
                         }, cancellationToken);
                         chunks.Add(new PdfFormattingSnapshot(page.ColumnWidths, colTitle,

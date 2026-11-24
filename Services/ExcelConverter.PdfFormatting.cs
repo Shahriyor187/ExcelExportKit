@@ -19,6 +19,11 @@ public static partial class ExcelConverter
         string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken)
     {
         var snapshot = ReadPdfFormatting(inputFile, options, cancellationToken);
+        return RenderFormattingAwarePdfAsync(snapshot, outputFile, options, cancellationToken);
+    }
+
+    private static Task RenderFormattingAwarePdfAsync(PdfFormattingSnapshot snapshot, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken)
+    {
         return Task.Run(() =>
         {
             TerraPDF.Core.Document.Create(document =>
@@ -139,12 +144,20 @@ public static partial class ExcelConverter
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
         if (!File.Exists(filePath))
             throw new FileNotFoundException("The Excel input file was not found.", filePath);
+        using var input = File.OpenRead(filePath);
+        return ReadPdfFormatting(input, options, cancellationToken);
+    }
+
+    private static PdfFormattingSnapshot ReadPdfFormatting(Stream input, ExcelConversionOptions options, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(options);
         if (options.WorksheetIndex < 0)
             throw new ArgumentOutOfRangeException(nameof(options.WorksheetIndex));
 
         ValidateRowWindow(options);
-        ValidateWorkbookInput(filePath, options, cancellationToken);
-        using var workbook = new XLWorkbook(filePath);
+        ValidateWorkbookInput(input, options, cancellationToken);
+        using var workbook = new XLWorkbook(new BorrowedStream(input));
         cancellationToken.ThrowIfCancellationRequested();
         var worksheet = options.WorksheetName is not null
             ? workbook.Worksheets.FirstOrDefault(w =>
@@ -152,7 +165,14 @@ public static partial class ExcelConverter
             : workbook.Worksheets.Skip(options.WorksheetIndex).FirstOrDefault();
         if (worksheet is null)
             throw new ArgumentException("The selected worksheet does not exist.", nameof(options));
+        return ReadPdfFormatting(worksheet, options, cancellationToken);
+    }
 
+    // Reuse the already validated workbook for print sections rather than
+    // repeatedly decompressing and loading the same untrusted archive.
+    private static PdfFormattingSnapshot ReadPdfFormatting(IXLWorksheet worksheet, ExcelConversionOptions options, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
         var used = string.IsNullOrWhiteSpace(options.RangeAddress)
             ? worksheet.RangeUsed()
             : worksheet.Range(options.RangeAddress);
@@ -273,9 +293,10 @@ public static partial class ExcelConverter
                 if (picture.ImageStream.Length > options.PdfMaxEmbeddedImageBytes)
                     throw new InvalidDataException(
                         $"Picture '{picture.Name}' exceeds the maximum byte size.");
-                if (picture.Width is < 1 or > 4096 || picture.Height is < 1 or > 4096)
+                if (picture.Width is < 1 or > 4096 || picture.Height is < 1 or > 4096 ||
+                    picture.OriginalWidth is < 1 or > 4096 || picture.OriginalHeight is < 1 or > 4096)
                     throw new InvalidDataException(
-                        $"Picture '{picture.Name}' has unsupported dimensions.");
+                        $"Picture '{picture.Name}' has unsupported original or displayed dimensions.");
 
                 var bytes = picture.ImageStream.ToArray();
                 // Limit image width to fit the cell in the PDF. 96 DPI source

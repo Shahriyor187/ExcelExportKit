@@ -50,9 +50,15 @@ public static partial class ExcelConverter
         var delimiter = delimiterOverride ?? options.CsvDelimiter;
         ValidateCsvDelimiter(delimiter);
         var sheet = ReadWorksheet(inputFile, options, cancellationToken);
+        await using var output = new FileStream(outputFile, FileMode.Create, FileAccess.Write, FileShare.None, 8192, useAsync: true);
+        await WriteSelectedDelimitedAsync(sheet, output, options, delimiter, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task WriteSelectedDelimitedAsync(SelectedWorksheet sheet, Stream output, ExcelConversionOptions options, char delimiter, CancellationToken cancellationToken)
+    {
         // Keep only one CSV row in the output buffer instead of duplicating the
         // entire workbook as a single StringBuilder in memory.
-        await using var writer = new StreamWriter(outputFile, false, Utf8WithoutBom);
+        await using var writer = new StreamWriter(output, Utf8WithoutBom, 8192, leaveOpen: true);
         var buffer = new StringBuilder();
         AppendSelectedCsvRow(buffer, sheet.Headers.Select(
             heading => SafeCsvValue(heading, options.CsvProtectFormulas)), delimiter);
@@ -82,11 +88,15 @@ public static partial class ExcelConverter
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(options);
         var sheet = ReadWorksheet(inputFile, options, cancellationToken);
-        // Stream JSON records directly to the file: avoid a second list of
-        // dictionaries plus a full serialized JSON string.
         await using var stream = new FileStream(
             outputFile, FileMode.Create, FileAccess.Write, FileShare.None,
             bufferSize: 64 * 1024, useAsync: true);
+        await WriteSelectedJsonAsync(sheet, stream, options, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static async Task WriteSelectedJsonAsync(SelectedWorksheet sheet, Stream stream, ExcelConversionOptions options, CancellationToken cancellationToken)
+    {
+        // Stream JSON records directly to the destination.
         using var jsonWriter = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true });
         jsonWriter.WriteStartArray();
         if (options.PreserveJsonTypes)
@@ -141,6 +151,11 @@ public static partial class ExcelConverter
             return WriteFormattingAwarePdfAsync(inputFile, outputFile, options, cancellationToken);
 
         var sheet = ReadWorksheet(inputFile, options, cancellationToken);
+        return RenderSelectedPdfAsync(sheet, outputFile, options, cancellationToken);
+    }
+
+    private static Task RenderSelectedPdfAsync(SelectedWorksheet sheet, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken)
+    {
         return Task.Run(() =>
         {
             TerraPDF.Core.Document.Create(document =>
@@ -215,7 +230,9 @@ public static partial class ExcelConverter
         }
         ArgumentException.ThrowIfNullOrWhiteSpace(outputFile);
         var fullPath = Path.GetFullPath(outputFile);
-        var temporary = Path.Combine(Path.GetDirectoryName(fullPath)!, $".export-{Guid.NewGuid():N}{Path.GetExtension(fullPath)}");
+        // Stage on the destination filesystem: a rename must not cross volumes.
+        var stageDirectory = CreatePrivateStageDirectory(Path.GetDirectoryName(fullPath)!);
+        var temporary = Path.Combine(stageDirectory, "output" + Path.GetExtension(fullPath));
         try
         {
             await convert(temporary).ConfigureAwait(false);
@@ -224,8 +241,7 @@ public static partial class ExcelConverter
         }
         finally
         {
-            if (File.Exists(temporary))
-                File.Delete(temporary);
+            Directory.Delete(stageDirectory, recursive: true);
         }
     }
 
@@ -328,9 +344,16 @@ public static partial class ExcelConverter
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
         if (!File.Exists(filePath))
             throw new FileNotFoundException("The Excel input file was not found.", filePath);
+        using var input = File.OpenRead(filePath);
+        return ReadWorksheet(input, options, cancellationToken, workbookLoaded, rowExtracted);
+    }
+
+    private static SelectedWorksheet ReadWorksheet(Stream input, ExcelConversionOptions options, CancellationToken cancellationToken,
+        Action? workbookLoaded = null, Action<int>? rowExtracted = null)
+    {
         ValidateRowWindow(options);
-        ValidateWorkbookInput(filePath, options, cancellationToken);
-        using var workbook = new XLWorkbook(filePath);
+        ValidateWorkbookInput(input, options, cancellationToken);
+        using var workbook = new XLWorkbook(new BorrowedStream(input));
         workbookLoaded?.Invoke();
         cancellationToken.ThrowIfCancellationRequested();
         if (workbook.Worksheets.Count == 0)
