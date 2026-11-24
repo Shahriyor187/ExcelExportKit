@@ -14,6 +14,17 @@ public static partial class ExcelConverter
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(options);
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
+        using var input = File.OpenRead(filePath);
+        ValidateWorkbookInput(input, options, cancellationToken);
+    }
+
+    private static void ValidateWorkbookInput(Stream input, ExcelConversionOptions options, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(options);
+        if (!input.CanRead || !input.CanSeek)
+            throw new ArgumentException("Workbook input must be readable and seekable.", nameof(input));
+        input.Position = 0;
 
         if (options.MaxWorkbookFileBytes is <= 0)
             throw new ArgumentOutOfRangeException(nameof(options.MaxWorkbookFileBytes));
@@ -24,12 +35,8 @@ public static partial class ExcelConverter
         if (options.MaxSelectedCells is <= 0)
             throw new ArgumentOutOfRangeException(nameof(options.MaxSelectedCells));
 
-        var file = new FileInfo(filePath);
-        if (!file.Exists)
-            throw new FileNotFoundException("The Excel input file was not found.", filePath);
-
         if (options.MaxWorkbookFileBytes is long maxFileBytes &&
-            file.Length > maxFileBytes)
+            input.Length > maxFileBytes)
             throw new InvalidDataException(
                 $"Workbook file exceeds the configured maximum of {maxFileBytes} bytes.");
 
@@ -41,7 +48,9 @@ public static partial class ExcelConverter
         // to load the workbook. Metadata-only size checks are insufficient:
         // actually read entry streams to enforce expanded-byte limits even
         // when an archive has forged size metadata.
-        using var archive = ZipFile.OpenRead(filePath);
+        try
+        {
+        using var archive = new ZipArchive(input, ZipArchiveMode.Read, leaveOpen: true);
         if (options.MaxWorkbookArchiveEntries is int maxEntries &&
             archive.Entries.Count > maxEntries)
             throw new InvalidDataException(
@@ -63,6 +72,11 @@ public static partial class ExcelConverter
             expanded = CountExpandedBytes(stream, buffer, expanded, maxUncompressedBytes, cancellationToken);
         }
         cancellationToken.ThrowIfCancellationRequested();
+        }
+        finally
+        {
+            input.Position = 0;
+        }
     }
 
     // Shared by archive validation and deterministic stream-based tests.
