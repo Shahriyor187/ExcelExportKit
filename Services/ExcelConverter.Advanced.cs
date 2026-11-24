@@ -305,7 +305,7 @@ public static partial class ExcelConverter
                 switch (normalized)
                 {
                     case "csv": await ToCSVAsync(file, path, new ExcelConversionOptions { CsvProtectFormulas = false }, cancellationToken).ConfigureAwait(false); break;
-                    case "tsv": await ToTSVAsync(file, path, new ExcelConversionOptions(), cancellationToken).ConfigureAwait(false); break;
+                    case "tsv": await ToTSVAsync(file, path, new ExcelConversionOptions { CsvProtectFormulas = false }, cancellationToken).ConfigureAwait(false); break;
                     case "json": await ToJsonAsync(file, path, new ExcelConversionOptions(), cancellationToken).ConfigureAwait(false); break;
                     case "pdf": await ToPDFAsync(file, path, new ExcelConversionOptions(), cancellationToken).ConfigureAwait(false); break;
                     case "docx": await ToWordAsync(file, path, new ExcelConversionOptions(), cancellationToken).ConfigureAwait(false); break;
