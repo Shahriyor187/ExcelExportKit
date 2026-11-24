@@ -115,6 +115,7 @@ public static partial class ExcelConverter
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(options);
+        ValidateRowWindow(options);
         if (!options.PdfPreserveCellFormatting)
             throw new ArgumentException(
                 "PdfUseWorksheetPrintSettings requires PdfPreserveCellFormatting.",
@@ -190,6 +191,8 @@ public static partial class ExcelConverter
         }
 
         var chunks = new List<PdfFormattingSnapshot>();
+        long remainingSkip = options.RowOffset;
+        long remainingTake = options.MaxRows ?? long.MaxValue;
         foreach (var region in regions)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -210,7 +213,15 @@ public static partial class ExcelConverter
                     "Print title row must precede or equal the first printed row.");
 
             var rowStart = Math.Max(r1, titleLastRow + 1);
-            var rowSegments = SplitAtBreaks(rowStart, r2, horizontal);
+            // Count source data rows once per print region, not once per horizontal page.
+            var available = Math.Max(0, r2 - rowStart + 1);
+            var skip = (int)Math.Min(remainingSkip, available);
+            remainingSkip -= skip;
+            var take = (int)Math.Min(remainingTake, available - skip);
+            remainingTake -= take;
+            if (take == 0 && chunks.Count != 0 && (options.RowOffset != 0 || options.MaxRows is not null))
+                continue;
+            var rowSegments = SplitAtBreaks(rowStart + skip, rowStart + skip + take - 1, horizontal);
             var colSegments = SplitAtBreaks(c1, c2, vertical);
             foreach (var (cs, ce) in colSegments)
             {
