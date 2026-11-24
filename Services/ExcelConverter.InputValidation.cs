@@ -60,15 +60,26 @@ public static partial class ExcelConverter
                     $"Workbook exceeds the configured expanded limit of {maxUncompressedBytes} bytes.");
 
             using var stream = entry.Open();
-            int read;
-            while ((read = stream.Read(buffer, 0, buffer.Length)) != 0)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                if (read > maxUncompressedBytes - expanded)
-                    throw new InvalidDataException(
-                        $"Workbook exceeds the configured expanded limit of {maxUncompressedBytes} bytes.");
-                expanded += read;
-            }
+            expanded = CountExpandedBytes(stream, buffer, expanded, maxUncompressedBytes, cancellationToken);
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+    }
+
+    // Shared by archive validation and deterministic stream-based tests.
+    internal static long CountExpandedBytes(Stream stream, byte[] buffer, long expanded,
+        long maxUncompressedBytes, CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var read = stream.Read(buffer, 0, buffer.Length);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (read == 0)
+                return expanded;
+            if (read > maxUncompressedBytes - expanded)
+                throw new InvalidDataException(
+                    $"Workbook exceeds the configured expanded limit of {maxUncompressedBytes} bytes.");
+            expanded += read;
         }
     }
 
