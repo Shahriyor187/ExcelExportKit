@@ -165,7 +165,14 @@ public static partial class ExcelConverter
             : workbook.Worksheets.Skip(options.WorksheetIndex).FirstOrDefault();
         if (worksheet is null)
             throw new ArgumentException("The selected worksheet does not exist.", nameof(options));
+        return ReadPdfFormatting(worksheet, options, cancellationToken);
+    }
 
+    // Reuse the already validated workbook for print sections rather than
+    // repeatedly decompressing and loading the same untrusted archive.
+    private static PdfFormattingSnapshot ReadPdfFormatting(IXLWorksheet worksheet, ExcelConversionOptions options, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
         var used = string.IsNullOrWhiteSpace(options.RangeAddress)
             ? worksheet.RangeUsed()
             : worksheet.Range(options.RangeAddress);
