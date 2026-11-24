@@ -280,7 +280,7 @@ rate limits, concurrency and timeouts.
 
 A dedicated, manually triggered [Excel conversion benchmark workflow](.github/workflows/benchmarks.yml)
 can profile synthetic 1K, 10K and 100K-row workbooks. It uploads a JSON report
-with times and memory observations; 100K runs benchmark CSV/JSON only. Results
+with times and memory observations; 100K runs benchmark CSV/TSV/JSON only. Results
 are **not** performance guarantees or proof of an optimization.
 
 The release gates and known limitations are in
@@ -387,3 +387,7 @@ await ExcelConverter.ToPDFAsync("sales.xlsx", "sales.pdf",
 - [TerraPDF](https://terrapdf.com/) — MIT, for generating PDF files.
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE.txt).
+
+## Additional v2.1 performance checks
+
+The benchmark worker now includes TSV, and the Python runner parses every CSV and TSV record to check ordering and representative escaped fields. Run `dotnet run -c Release --project tests/ExcelExportKit.Benchmarks -- --progress` to compare CSV progress enabled and disabled. See [draft release notes](https://github.com/Shahriyor187/ExcelExportKit/blob/master/docs/RELEASE_V2_1_NOTES.md).
