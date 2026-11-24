@@ -14,6 +14,11 @@ public enum InputBufferingMode
 /// <summary>Settings for worksheet selection and conversion output.</summary>
 public sealed class ExcelConversionOptions
 {
+    /// <summary>Optional row progress notifications. Await the export itself to determine success.</summary>
+    public IProgress<ExportProgress>? Progress { get; init; }
+    /// <summary>Number of data rows between progress notifications.</summary>
+    public int ProgressIntervalRows { get; init; } = 1000;
+
     /// <summary>Policy for non-seekable workbook input. Seekable input needs no buffering.</summary>
     public InputBufferingMode InputBufferingMode { get; init; } = InputBufferingMode.RejectNonSeekable;
 

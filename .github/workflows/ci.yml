@@ -48,6 +48,9 @@ jobs:
             --dll tests/ExcelExportKit.Benchmarks/bin/Release/net10.0/ExcelExportKit.Benchmarks.dll \
             --rows 1000 --output "${{ runner.temp }}/benchmark-smoke" --repeats 1
 
+      - name: Compare progress reporting overhead
+        run: dotnet run --project tests/ExcelExportKit.Benchmarks/ExcelExportKit.Benchmarks.csproj -c Release -- --progress
+
       - name: Pack both target frameworks
         run: dotnet pack ExcelExportKit.csproj --configuration Release --no-restore --output ./artifacts
 

@@ -24,6 +24,7 @@ public static partial class ExcelConverter
 
     private static Task RenderFormattingAwarePdfAsync(PdfFormattingSnapshot snapshot, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken)
     {
+        var progress = ExportProgressTracker.Create(options.Progress, options.ProgressIntervalRows, snapshot.Rows.Count, cancellationToken);
         return Task.Run(() =>
         {
             TerraPDF.Core.Document.Create(document =>
@@ -74,11 +75,13 @@ public static partial class ExcelConverter
                                         cell, header: false);
                                 }
                             });
+                            progress?.RowWritten();
                         }
                     });
                 });
             }).PublishPdf(outputFile);
             cancellationToken.ThrowIfCancellationRequested();
+            progress?.Finish();
         }, cancellationToken);
     }
 

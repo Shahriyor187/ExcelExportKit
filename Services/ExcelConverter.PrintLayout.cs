@@ -23,6 +23,7 @@ public static partial class ExcelConverter
 
     private static Task RenderWorksheetPrintPdfAsync(PdfPrintLayout layout, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken)
     {
+        var progress = ExportProgressTracker.Create(options.Progress, options.ProgressIntervalRows, layout.Chunks.Sum(chunk => (long)chunk.Rows.Count), cancellationToken);
         return Task.Run(() =>
         {
             TerraPDF.Core.Document.Create(document =>
@@ -80,12 +81,14 @@ public static partial class ExcelConverter
                                                 rowSpan: cell.RowSpan),
                                             ScalePrintCell(cell, layout.Scale), false);
                                 });
+                                progress?.RowWritten();
                             }
                         });
                     });
                 }
             }).PublishPdf(outputFile);
             cancellationToken.ThrowIfCancellationRequested();
+            progress?.Finish();
         }, cancellationToken);
     }
 
