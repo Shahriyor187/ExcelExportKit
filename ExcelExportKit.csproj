@@ -5,7 +5,10 @@
     <Nullable>enable</Nullable>
 
     <PackageId>ExcelExportKit</PackageId>
-    <Version>2.0.0</Version>
+    <Version>2.1.0-rc.1</Version>
+    <!-- Compare against the actual published package, not a source snapshot. -->
+    <EnablePackageValidation>true</EnablePackageValidation>
+    <PackageValidationBaselineVersion>2.0.0</PackageValidationBaselineVersion>
     <Authors>Shahriyor Murodilov</Authors>
     <Description>Convert XLSX worksheets to CSV, TSV, typed JSON, styled PDF and DOCX. Supports stream and file conversions, row selection, progress reporting, batch conversion and configurable workbook input limits.</Description>
     <PackageTags>excel;xlsx;csv;tsv;json;pdf;word;docx;conversion;export;spreadsheet;streams;reporting</PackageTags>
