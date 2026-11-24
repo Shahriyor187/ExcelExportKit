@@ -1,8 +1,29 @@
 namespace ExportFiles.Services;
 
+/// <summary>Explicit policy for non-seekable workbook input streams.</summary>
+public enum InputBufferingMode
+{
+    /// <summary>Reject non-seekable input without reading it.</summary>
+    RejectNonSeekable,
+    /// <summary>Buffer non-seekable input in memory, subject to the configured byte limit.</summary>
+    Memory,
+    /// <summary>Buffer non-seekable input in a private temporary file, subject to the configured byte limit.</summary>
+    TemporaryFile
+}
+
 /// <summary>Settings for worksheet selection and conversion output.</summary>
 public sealed class ExcelConversionOptions
 {
+    /// <summary>Policy for non-seekable workbook input. Seekable input needs no buffering.</summary>
+    public InputBufferingMode InputBufferingMode { get; init; } = InputBufferingMode.RejectNonSeekable;
+
+    /// <summary>Maximum bytes buffered from non-seekable input. Default is 64 MiB.</summary>
+    public long MaxBufferedInputBytes { get; init; } = 64L * 1024 * 1024;
+
+    /// <summary>Optional existing directory for library-owned temporary files. Null uses the system temporary directory.</summary>
+    public string? TemporaryDirectory { get; init; }
+
+
     /// <summary>Number of physical data rows to skip after the header, before empty-row filtering.</summary>
     public long RowOffset { get; init; }
     /// <summary>Maximum physical data rows to select, or null for unlimited. Headers are excluded.</summary>
