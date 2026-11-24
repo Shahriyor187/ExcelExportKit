@@ -4,7 +4,7 @@ on:
   push:
     branches: [master, "chore/**"]
   pull_request:
-    branches: [master]
+    branches: [master, "feat/v21-row-window"]
 
 jobs:
   build-test-package:
