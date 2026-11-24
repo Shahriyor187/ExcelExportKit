@@ -23,6 +23,17 @@ public sealed class ExcelConversionOptions
     /// <summary>Optional existing directory for library-owned temporary files. Null uses the system temporary directory.</summary>
     public string? TemporaryDirectory { get; init; }
 
+    // New stream APIs use finite input limits by default without altering legacy path APIs.
+    internal ExcelConversionOptions WithStreamSafetyDefaults()
+    {
+        var copy = (ExcelConversionOptions)MemberwiseClone();
+        copy.MaxWorkbookFileBytes ??= 64L * 1024 * 1024;
+        copy.MaxUncompressedWorkbookBytes ??= 256L * 1024 * 1024;
+        copy.MaxWorkbookArchiveEntries ??= 4096;
+        copy.MaxSelectedCells ??= 1_000_000;
+        return copy;
+    }
+
 
     /// <summary>Number of physical data rows to skip after the header, before empty-row filtering.</summary>
     public long RowOffset { get; init; }
