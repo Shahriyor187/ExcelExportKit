@@ -362,3 +362,14 @@ Set `RowOffset` and `MaxRows` on `ExcelConversionOptions` to select physical dat
 ## TSV conversion (v2.1 development)
 
 Use `ExcelConverter.ToTSVAsync(inputFile, outputFile, options, cancellationToken)` to convert a worksheet, or pass `"tsv"` to `ConvertAllSheetsAsync` and `ConvertBatchAsync`. TSV forces a tab delimiter without modifying the supplied options, retains worksheet and range selection and row windows, and uses UTF-8 without BOM. Fields containing tabs, quotes or newlines use CSV-style quoting and doubled embedded quotes. Formula protection is enabled by default, including batch conversion. Cancellable path conversions retain the existing staged-output behavior. Use a parser that understands quoted TSV.
+
+
+## Stream input and output (v2.1 development)
+
+CSV, TSV, JSON, PDF and Word support stream-to-stream, path-to-stream and stream-to-path overloads. The caller owns input and output streams. Seekable input must start at position zero; seekable output must be empty and positioned at zero. Non-seekable output is supported. Input and output must not refer to the same underlying resource (distinct wrappers cannot always be detected). Do not change streams or options concurrently during conversion.
+
+New stream overloads default to 64 MiB compressed workbook size, 256 MiB expanded ZIP size, 4096 archive entries and 1,000,000 selected cells. Supply positive custom limits to adjust them. Legacy path-to-path defaults are unchanged. Non-seekable input is rejected unless InputBufferingMode.Memory or InputBufferingMode.TemporaryFile is explicitly selected. Buffering enforces the smaller of MaxBufferedInputBytes (64 MiB by default) and MaxWorkbookFileBytes while copying. CSV/TSV/JSON write directly; PDF and Word stage rendered output in a temporary directory. Stream-to-path writes stage on the destination filesystem before replacement.
+
+TemporaryDirectory must be an existing, application-controlled directory; never derive it or output paths directly from untrusted upload names. Unix temporary files/directories use owner-only permissions; Windows relies on the parent directory ACL, so use a private application directory. Temporary resources are cleaned up during normal completion, failure or cooperative cancellation, not guaranteed after process termination. Use external cleanup and disk quotas as appropriate.
+
+ClosedXML still loads the workbook into memory. Limits are not a sandbox or a guaranteed process memory ceiling. For hostile uploads use isolated workers, OS memory/CPU/disk quotas, request limits and timeouts. Cancellation cannot interrupt every synchronous parser or renderer call. Caller-owned output may contain partial bytes on failure or cancellation; discard it. Spreadsheet formula protection is enabled by default for CSV/TSV stream conversions but is not a universal guarantee across spreadsheet applications.
