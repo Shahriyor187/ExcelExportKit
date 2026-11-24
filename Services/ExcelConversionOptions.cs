@@ -66,7 +66,7 @@ public sealed class ExcelConversionOptions
     /// <summary>CSV field separator.</summary>
     public char CsvDelimiter { get; set; } = ',';
 
-    /// <summary>Quote strings to prevent spreadsheet formula injection when reopening CSV exports.</summary>
+    /// <summary>Prefix formula-like text to mitigate spreadsheet formula injection in delimited exports. Not a universal guarantee.</summary>
     public bool CsvProtectFormulas { get; set; } = true;
 
     /// <summary>Title written above exported PDF and Word tables.</summary>
@@ -98,23 +98,23 @@ public sealed class ExcelConversionOptions
 
     /// <summary>
     /// Optional maximum input XLSX file size in bytes, checked before loading it.
-    /// Set for untrusted uploads; null leaves existing behavior unchanged.
+    /// Null uses the stream API default or disables the limit in legacy path-to-path APIs.
     /// </summary>
     public long? MaxWorkbookFileBytes { get; set; }
 
     /// <summary>
     /// Optional maximum total expanded ZIP entry bytes for the XLSX archive.
     /// The archive is read once before ClosedXML loads it to enforce this limit.
-    /// Null disables the check for backward compatibility.
+    /// Null uses the stream API default or disables the check in legacy path-to-path APIs.
     /// </summary>
     public long? MaxUncompressedWorkbookBytes { get; set; }
 
-    /// <summary>Optional maximum number of XLSX ZIP archive entries.</summary>
+    /// <summary>Maximum XLSX ZIP archive entries; null uses the stream default or disables the limit for legacy path APIs.</summary>
     public int? MaxWorkbookArchiveEntries { get; set; }
 
     /// <summary>
     /// Optional maximum number of cells in the selected worksheet rectangle.
-    /// Prevents accidentally processing enormous sparse ranges.
+    /// Null uses the stream default or disables the limit for legacy path APIs. This is not a process memory limit.
     /// </summary>
     public long? MaxSelectedCells { get; set; }
 
