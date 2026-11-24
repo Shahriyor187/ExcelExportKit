@@ -194,7 +194,6 @@ public static partial class ExcelConverter
         try
         {
             await convert(temporary).ConfigureAwait(false);
-            cancellationToken.ThrowIfCancellationRequested();
             File.Move(temporary, fullPath, overwrite: true);
         }
         finally
