@@ -179,7 +179,7 @@ public static partial class ExcelConverter
     }
 
     // Keep existing files intact on cancellation. Stage only cancellable path exports.
-    private static async Task ConvertWithCancellationAsync(string outputFile, CancellationToken cancellationToken,
+    internal static async Task ConvertWithCancellationAsync(string outputFile, CancellationToken cancellationToken,
         Func<string, Task> convert)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -294,7 +294,8 @@ public static partial class ExcelConverter
         return results;
     }
 
-    private static SelectedWorksheet ReadWorksheet(string filePath, ExcelConversionOptions options, CancellationToken cancellationToken)
+    internal static SelectedWorksheet ReadWorksheet(string filePath, ExcelConversionOptions options, CancellationToken cancellationToken,
+        Action? workbookLoaded = null, Action<int>? rowExtracted = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
@@ -302,6 +303,7 @@ public static partial class ExcelConverter
             throw new FileNotFoundException("The Excel input file was not found.", filePath);
         ValidateWorkbookInput(filePath, options, cancellationToken);
         using var workbook = new XLWorkbook(filePath);
+        workbookLoaded?.Invoke();
         cancellationToken.ThrowIfCancellationRequested();
         if (workbook.Worksheets.Count == 0)
             throw new InvalidDataException("The workbook contains no worksheets.");
@@ -353,6 +355,7 @@ public static partial class ExcelConverter
                         _ => formatted
                     });
             }
+            rowExtracted?.Invoke(row);
             if (options.SkipEmptyRows && display.All(string.IsNullOrWhiteSpace))
                 continue;
             displayRows.Add(display);
@@ -360,6 +363,7 @@ public static partial class ExcelConverter
                 typedRows!.Add(typed);
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         if (headers.Count == 0)
             throw new InvalidDataException("The worksheet has no columns.");
         return new SelectedWorksheet(headers, displayRows,
@@ -502,7 +506,7 @@ public static partial class ExcelConverter
         table.Append(tableRow);
     }
 
-    private sealed record SelectedWorksheet(
+    internal sealed record SelectedWorksheet(
         IReadOnlyList<string> Headers,
         IReadOnlyList<IReadOnlyList<string>> Rows,
         IReadOnlyList<IReadOnlyList<object?>> TypedRows);
