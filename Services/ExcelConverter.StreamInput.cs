@@ -98,7 +98,7 @@ public static partial class ExcelConverter
         {
             cancellationToken.ThrowIfCancellationRequested();
             var remaining = limit - copied;
-            var request = remaining >= buffer.Length ? buffer.Length : (int)remaining + 1;
+            var request = buffer.Length;
             var read = await input.ReadAsync(buffer.AsMemory(0, request), cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             if (read == 0) break;
