@@ -26,14 +26,7 @@ public static partial class ExcelConverter
             throw new ArgumentException("Workbook input must be readable and seekable.", nameof(input));
         input.Position = 0;
 
-        if (options.MaxWorkbookFileBytes is <= 0)
-            throw new ArgumentOutOfRangeException(nameof(options.MaxWorkbookFileBytes));
-        if (options.MaxUncompressedWorkbookBytes is <= 0)
-            throw new ArgumentOutOfRangeException(nameof(options.MaxUncompressedWorkbookBytes));
-        if (options.MaxWorkbookArchiveEntries is <= 0)
-            throw new ArgumentOutOfRangeException(nameof(options.MaxWorkbookArchiveEntries));
-        if (options.MaxSelectedCells is <= 0)
-            throw new ArgumentOutOfRangeException(nameof(options.MaxSelectedCells));
+        ValidateInputLimits(options);
 
         if (options.MaxWorkbookFileBytes is long maxFileBytes &&
             input.Length > maxFileBytes)
@@ -77,6 +70,18 @@ public static partial class ExcelConverter
         {
             input.Position = 0;
         }
+    }
+
+    private static void ValidateInputLimits(ExcelConversionOptions options)
+    {
+        if (options.MaxWorkbookFileBytes is <= 0)
+            throw new ArgumentOutOfRangeException(nameof(options.MaxWorkbookFileBytes));
+        if (options.MaxUncompressedWorkbookBytes is <= 0)
+            throw new ArgumentOutOfRangeException(nameof(options.MaxUncompressedWorkbookBytes));
+        if (options.MaxWorkbookArchiveEntries is <= 0)
+            throw new ArgumentOutOfRangeException(nameof(options.MaxWorkbookArchiveEntries));
+        if (options.MaxSelectedCells is <= 0)
+            throw new ArgumentOutOfRangeException(nameof(options.MaxSelectedCells));
     }
 
     // Shared by archive validation and deterministic stream-based tests.
