@@ -123,6 +123,77 @@ public sealed class CancellationTests
         finally { dir.Delete(true); }
     }
 
+    [Fact]
+    public void ArchiveScanStopsDuringRead()
+    {
+        using var cancel = new CancellationTokenSource();
+        using var stream = new CancellingInput(cancel);
+        Assert.ThrowsAny<OperationCanceledException>(() =>
+            ExcelConverter.CountExpandedBytes(stream, new byte[16], 0, 1024, cancel.Token));
+        Assert.Equal(2, stream.Reads);
+        Assert.True(stream.CanRead);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void WorksheetExtractionStopsAfterLoadOrDuringRows(bool cancelAfterLoad)
+    {
+        using var cancel = new CancellationTokenSource();
+        var dir = Directory.CreateTempSubdirectory();
+        try
+        {
+            var path = Path.Combine(dir.FullName, "input.xlsx");
+            using (var workbook = new XLWorkbook())
+            {
+                var sheet = workbook.AddWorksheet("Data");
+                sheet.Cell(1, 1).Value = "Id";
+                for (int i = 2; i <= 10; i++) sheet.Cell(i, 1).Value = i;
+                workbook.SaveAs(path);
+            }
+            var rows = 0;
+            Assert.ThrowsAny<OperationCanceledException>(() =>
+                ExcelConverter.ReadWorksheet(path, new ExcelConversionOptions(), cancel.Token,
+                    workbookLoaded: () => { if (cancelAfterLoad) cancel.Cancel(); },
+                    rowExtracted: _ => { if (++rows == 2) cancel.Cancel(); }));
+            Assert.Equal(cancelAfterLoad ? 0 : 2, rows);
+        }
+        finally { dir.Delete(true); }
+    }
+
+    [Fact]
+    public async Task CancellationAfterStagedWritePreservesExistingFile()
+    {
+        using var cancel = new CancellationTokenSource();
+        var dir = Directory.CreateTempSubdirectory();
+        try
+        {
+            var output = Path.Combine(dir.FullName, "output.csv");
+            await File.WriteAllTextAsync(output, "existing");
+            var task = ExcelConverter.ConvertWithCancellationAsync(output, cancel.Token, async staged =>
+            {
+                await File.WriteAllTextAsync(staged, "replacement");
+                cancel.Cancel();
+            });
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
+            Assert.True(task.IsCanceled);
+            Assert.Equal("existing", await File.ReadAllTextAsync(output));
+            Assert.Single(dir.GetFiles());
+        }
+        finally { dir.Delete(true); }
+    }
+
+    private sealed class CancellingInput(CancellationTokenSource source) : MemoryStream(new byte[64])
+    {
+        public int Reads { get; private set; }
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            var read = base.Read(buffer, offset, count);
+            if (++Reads == 2) source.Cancel();
+            return read;
+        }
+    }
+
     private static Task Convert(string input, string output, string format, CancellationToken token)
     {
         var options = new ExcelConversionOptions
