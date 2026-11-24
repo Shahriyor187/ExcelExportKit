@@ -31,8 +31,8 @@ def main() -> None:
     directory.mkdir(parents=True, exist_ok=True)
     fixture = directory / "fixture.xlsx"
     generated = worker(dll, "generate", str(args.rows), str(fixture))
-    formats = ["csv", "json"] if args.rows > 10000 else [
-        "csv", "json", "pdf", "docx"
+    formats = ["csv", "tsv", "json"] if args.rows > 10000 else [
+        "csv", "tsv", "json", "pdf", "docx"
     ]
 
     result = {
