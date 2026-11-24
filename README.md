@@ -348,3 +348,7 @@ The options-based CSV overload protects formula-like values by default. The orig
 The library is independent of ASP.NET Core. Validate any user-supplied input
 paths and file sizes before opening Excel workbooks. PDF export currently uses
 the built-in Latin font set; additional scripts may require custom fonts.
+
+## Memory and cancellation characteristics (v2.1 development)
+
+Cancellation-aware file conversion overloads accept an explicit `CancellationToken` after options. Cancellation is cooperative during archive checks, worksheet extraction and output row construction. ClosedXML workbook loading and third-party PDF/DOCX serialization may not be interruptible. Cancellable file exports stage output beside the destination, then move it into place after conversion and a final cancellation check. Completed batch items remain on disk; cancellation propagates rather than returning a success result. ClosedXML loads workbook data into memory; `MaxWorkbookFileBytes` limits compressed input bytes and `MaxSelectedCells` limits the selected conversion rectangle, not total process memory. CSV and JSON avoid accumulating an additional complete output string but still load the workbook and selected rows in memory.
