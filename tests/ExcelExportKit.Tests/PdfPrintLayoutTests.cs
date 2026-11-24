@@ -119,6 +119,42 @@ public sealed class PdfPrintLayoutTests
     }
 
     [Fact]
+    public async Task RepeatedPrintHeadersConsumeBudgetForEverySection()
+    {
+        using var input = new MemoryStream();
+        using (var book = new XLWorkbook())
+        {
+            var sheet = book.AddWorksheet("Data");
+            for (int i = 1; i <= 6; i++) sheet.Cell(i, 1).Value = "Row " + i;
+            sheet.PageSetup.PrintAreas.Add("A1:A6");
+            sheet.PageSetup.SetRowsToRepeatAtTop(1, 2);
+            sheet.PageSetup.AddHorizontalPageBreak(4);
+            book.SaveAs(input);
+        }
+        input.Position = 0;
+        using var output = new MemoryStream();
+        await Assert.ThrowsAsync<InvalidDataException>(() => ExcelConverter.ToPDFAsync(input, output,
+            new ExcelConversionOptions
+            {
+                PdfUseWorksheetPrintSettings = true,
+                PdfPreserveCellFormatting = true,
+                PdfPrintScalePercent = 100,
+                MaxSelectedCells = 6
+            }));
+        Assert.Equal(0, output.Length);
+        Assert.True(input.CanRead);
+        input.Position = 0;
+        await ExcelConverter.ToPDFAsync(input, output, new ExcelConversionOptions
+        {
+            PdfUseWorksheetPrintSettings = true,
+            PdfPreserveCellFormatting = true,
+            PdfPrintScalePercent = 100,
+            MaxSelectedCells = 8
+        });
+        Assert.True(output.Length > 0);
+    }
+
+    [Fact]
     public void RequiresOptInFormattingAndRejectsInvalidScale()
     {
         var input = Temp(".xlsx");
