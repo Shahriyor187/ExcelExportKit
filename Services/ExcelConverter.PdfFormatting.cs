@@ -142,6 +142,7 @@ public static partial class ExcelConverter
         if (options.WorksheetIndex < 0)
             throw new ArgumentOutOfRangeException(nameof(options.WorksheetIndex));
 
+        ValidateRowWindow(options);
         ValidateWorkbookInput(filePath, options, cancellationToken);
         using var workbook = new XLWorkbook(filePath);
         cancellationToken.ThrowIfCancellationRequested();
@@ -163,6 +164,8 @@ public static partial class ExcelConverter
         var firstCol = used.RangeAddress.FirstAddress.ColumnNumber;
         var lastCol = used.RangeAddress.LastAddress.ColumnNumber;
         ValidateSelectedCells(firstRow, lastRow, firstCol, lastCol, options);
+        var (dataStart, dataEnd) = SelectDataRows(firstRow, lastRow, options);
+        bool IncludesRow(int row) => row == firstRow || (row >= dataStart && row <= dataEnd);
 
         // A merge is allowed only when its entire rectangle is selected.
         // Cropped spans or a vertical merge from the repeating header into
@@ -178,6 +181,12 @@ public static partial class ExcelConverter
                 b.ColumnNumber < firstCol || a.ColumnNumber > lastCol)
                 continue;
 
+            // Ignore merges entirely outside the selected data window, but
+            // never silently crop a merge that intersects the retained header or data.
+            var touchesHeader = a.RowNumber <= firstRow && b.RowNumber >= firstRow;
+            var touchesData = dataStart <= dataEnd && a.RowNumber <= dataEnd && b.RowNumber >= dataStart;
+            if (!touchesHeader && !touchesData) continue;
+
             if (a.RowNumber < firstRow || b.RowNumber > lastRow ||
                 a.ColumnNumber < firstCol || b.ColumnNumber > lastCol)
                 throw new NotSupportedException(
@@ -187,6 +196,10 @@ public static partial class ExcelConverter
                 throw new NotSupportedException(
                     $"Merged range {merged.RangeAddress} crosses the repeated PDF header. " +
                     "Use a selection whose first row is not vertically merged with the data.");
+
+            if (!touchesHeader && (a.RowNumber < dataStart || b.RowNumber > dataEnd))
+                throw new NotSupportedException(
+                    $"Merged range {merged.RangeAddress} crosses the selected PDF row window. Select its entire rectangle.");
 
             anchors.Add((a.RowNumber, a.ColumnNumber),
                 (b.RowNumber - a.RowNumber + 1, b.ColumnNumber - a.ColumnNumber + 1));
@@ -235,6 +248,7 @@ public static partial class ExcelConverter
                     throw new NotSupportedException(
                         $"Picture '{picture.Name}' is outside the selected PDF cell range.");
                 }
+                if (!IncludesRow(row)) continue;
                 count++;
                 if (count > options.PdfMaxEmbeddedImages)
                     throw new InvalidDataException(
@@ -326,7 +340,7 @@ public static partial class ExcelConverter
 
         var header = GetRow(firstRow);
         var rows = new List<PdfStyledRow>();
-        for (var row = firstRow + 1; row <= lastRow; row++)
+        for (var row = dataStart; row <= dataEnd; row++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var styled = GetRow(row);
