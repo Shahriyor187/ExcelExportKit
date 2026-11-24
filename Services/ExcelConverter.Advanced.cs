@@ -34,6 +34,7 @@ public static partial class ExcelConverter
     public static Task ToCSVAsync(string inputFile, string outputFile, ExcelConversionOptions options) =>
         ToCSVAsync(inputFile, outputFile, options, CancellationToken.None);
 
+    /// <summary>Converts a workbook to CSV with cooperative cancellation and staged destination replacement when cancellation or progress is enabled.</summary>
     public static Task ToCSVAsync(string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken) =>
         ConvertWithCancellationAsync(outputFile, cancellationToken,
             path => ToCSVAsyncCore(inputFile, path, options, cancellationToken), options?.Progress is not null);
@@ -83,6 +84,7 @@ public static partial class ExcelConverter
     public static Task ToJsonAsync(string inputFile, string outputFile, ExcelConversionOptions options) =>
         ToJsonAsync(inputFile, outputFile, options, CancellationToken.None);
 
+    /// <summary>Converts a workbook to JSON with cooperative cancellation and staged destination replacement when cancellation or progress is enabled.</summary>
     public static Task ToJsonAsync(string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken) =>
         ConvertWithCancellationAsync(outputFile, cancellationToken,
             path => ToJsonAsyncCore(inputFile, path, options, cancellationToken), options?.Progress is not null);
@@ -141,6 +143,7 @@ public static partial class ExcelConverter
     public static Task ToPDFAsync(string inputFile, string outputFile, ExcelConversionOptions options) =>
         ToPDFAsync(inputFile, outputFile, options, CancellationToken.None);
 
+    /// <summary>Converts a workbook to PDF with cooperative cancellation and staged destination replacement when cancellation or progress is enabled.</summary>
     public static Task ToPDFAsync(string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken) =>
         ConvertWithCancellationAsync(outputFile, cancellationToken,
             path => ToPDFAsyncCore(inputFile, path, options, cancellationToken), options?.Progress is not null);
@@ -217,6 +220,7 @@ public static partial class ExcelConverter
     public static Task ToWordAsync(string inputFile, string outputFile, ExcelConversionOptions options) =>
         ToWordAsync(inputFile, outputFile, options, CancellationToken.None);
 
+    /// <summary>Converts a workbook to DOCX with cooperative cancellation and staged destination replacement when cancellation or progress is enabled.</summary>
     public static Task ToWordAsync(string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken) =>
         ConvertWithCancellationAsync(outputFile, cancellationToken,
             path => ToWordAsyncCore(inputFile, path, options, cancellationToken), options?.Progress is not null);
