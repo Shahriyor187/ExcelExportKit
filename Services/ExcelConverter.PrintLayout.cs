@@ -15,15 +15,16 @@ public static partial class ExcelConverter
     /// This is a bounded approximation, not a replica of Excel's print engine.
     /// </summary>
     private static Task WriteWorksheetPrintPdfAsync(
-        string inputFile, string outputFile, ExcelConversionOptions options)
+        string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken)
     {
-        var layout = ReadWorksheetPrintLayout(inputFile, options);
+        var layout = ReadWorksheetPrintLayout(inputFile, options, cancellationToken);
         return Task.Run(() =>
         {
             TerraPDF.Core.Document.Create(document =>
             {
                 foreach (var chunk in layout.Chunks)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     document.Page(page =>
                     {
                         page.Size(layout.Landscape
@@ -64,6 +65,8 @@ public static partial class ExcelConverter
                                 foreach (var heading in chunk.AdditionalHeaders)
                                     RenderHeader(heading);
                             foreach (var line in chunk.Rows)
+                            {
+                                cancellationToken.ThrowIfCancellationRequested();
                                 table.Row(row =>
                                 {
                                     foreach (var cell in line.Cells)
@@ -72,11 +75,13 @@ public static partial class ExcelConverter
                                                 rowSpan: cell.RowSpan),
                                             ScalePrintCell(cell, layout.Scale), false);
                                 });
+                            }
                         });
                     });
                 }
             }).PublishPdf(outputFile);
-        });
+            cancellationToken.ThrowIfCancellationRequested();
+        }, cancellationToken);
     }
 
     private static PdfStyledCell ScalePrintCell(PdfStyledCell cell, double scale)
@@ -106,8 +111,9 @@ public static partial class ExcelConverter
         double TopMarginPoints, double BottomMarginPoints, double Scale);
 
     internal static PdfPrintLayout ReadWorksheetPrintLayout(
-        string filePath, ExcelConversionOptions options)
+        string filePath, ExcelConversionOptions options, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(options);
         if (!options.PdfPreserveCellFormatting)
             throw new ArgumentException(
@@ -117,8 +123,9 @@ public static partial class ExcelConverter
             throw new ArgumentOutOfRangeException(nameof(options.PdfPrintScalePercent),
                 "Print scale must be between 10% and 400%.");
 
-        ValidateWorkbookInput(filePath, options);
+        ValidateWorkbookInput(filePath, options, cancellationToken);
         using var workbook = new XLWorkbook(filePath);
+        cancellationToken.ThrowIfCancellationRequested();
         var worksheet = options.WorksheetName is not null
             ? workbook.Worksheets.FirstOrDefault(w =>
                 string.Equals(w.Name, options.WorksheetName, StringComparison.OrdinalIgnoreCase))
@@ -185,6 +192,7 @@ public static partial class ExcelConverter
         var chunks = new List<PdfFormattingSnapshot>();
         foreach (var region in regions)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             int r1 = region.FirstAddress.RowNumber, r2 = region.LastAddress.RowNumber;
             int c1 = region.FirstAddress.ColumnNumber, c2 = region.LastAddress.ColumnNumber;
             ValidateSelectedCells(r1, r2, c1, c2, options);
@@ -206,6 +214,7 @@ public static partial class ExcelConverter
             var colSegments = SplitAtBreaks(c1, c2, vertical);
             foreach (var (cs, ce) in colSegments)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var titleSnapshot = ReadPdfFormatting(filePath, new ExcelConversionOptions
                 {
                     WorksheetName = worksheet.Name,
@@ -216,11 +225,12 @@ public static partial class ExcelConverter
                     PdfMaxEmbeddedImageBytes = options.PdfMaxEmbeddedImageBytes,
                     PdfMaxEmbeddedImages = options.PdfMaxEmbeddedImages,
                 PdfIgnoreImagesOutsideSelectedRange = true
-                });
+                }, cancellationToken);
                 var colTitle = titleSnapshot.Header;
                 var extraTitleRows = titleSnapshot.Rows;
                 foreach (var (rs, re) in rowSegments)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     // A range's first row is treated as a header by the shared
                     // extractor. Here it is the first data row of this slice.
                     PdfFormattingSnapshot page;
@@ -237,7 +247,7 @@ public static partial class ExcelConverter
                             PdfMaxEmbeddedImages = options.PdfMaxEmbeddedImages,
                 PdfIgnoreImagesOutsideSelectedRange = true,
                             SkipEmptyRows = options.SkipEmptyRows
-                        });
+                        }, cancellationToken);
                         chunks.Add(new PdfFormattingSnapshot(page.ColumnWidths, colTitle,
                             new[] { page.Header }.Concat(page.Rows).ToList(),
                             extraTitleRows));

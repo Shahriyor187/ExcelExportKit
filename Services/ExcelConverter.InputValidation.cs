@@ -9,8 +9,9 @@ public static partial class ExcelConverter
     /// memory; callers processing untrusted uploads should set these limits
     /// *before* loading it. Limits are disabled by default for compatibility.
     /// </summary>
-    private static void ValidateWorkbookInput(string filePath, ExcelConversionOptions options)
+    private static void ValidateWorkbookInput(string filePath, ExcelConversionOptions options, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(options);
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 
@@ -53,6 +54,7 @@ public static partial class ExcelConverter
         var buffer = new byte[64 * 1024];
         foreach (var entry in archive.Entries)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (entry.Length > maxUncompressedBytes - expanded)
                 throw new InvalidDataException(
                     $"Workbook exceeds the configured expanded limit of {maxUncompressedBytes} bytes.");
@@ -61,6 +63,7 @@ public static partial class ExcelConverter
             int read;
             while ((read = stream.Read(buffer, 0, buffer.Length)) != 0)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (read > maxUncompressedBytes - expanded)
                     throw new InvalidDataException(
                         $"Workbook exceeds the configured expanded limit of {maxUncompressedBytes} bytes.");

@@ -16,9 +16,9 @@ public static partial class ExcelConverter
     /// This remains a table renderer rather than an exact Excel print-layout engine.
     /// </summary>
     private static Task WriteFormattingAwarePdfAsync(
-        string inputFile, string outputFile, ExcelConversionOptions options)
+        string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken)
     {
-        var snapshot = ReadPdfFormatting(inputFile, options);
+        var snapshot = ReadPdfFormatting(inputFile, options, cancellationToken);
         return Task.Run(() =>
         {
             TerraPDF.Core.Document.Create(document =>
@@ -59,6 +59,7 @@ public static partial class ExcelConverter
 
                         foreach (var values in snapshot.Rows)
                         {
+                            cancellationToken.ThrowIfCancellationRequested();
                             table.Row(row =>
                             {
                                 foreach (var cell in values.Cells)
@@ -72,7 +73,8 @@ public static partial class ExcelConverter
                     });
                 });
             }).PublishPdf(outputFile);
-        });
+            cancellationToken.ThrowIfCancellationRequested();
+        }, cancellationToken);
     }
 
     private static void RenderPdfCell(IContainer container, PdfStyledCell cell, bool header)
@@ -130,8 +132,9 @@ public static partial class ExcelConverter
     /// Internal to permit structural tests for merge shapes, boundaries and styles.
     /// No PDF-related API is exposed to consumers in this iteration.
     /// </summary>
-    internal static PdfFormattingSnapshot ReadPdfFormatting(string filePath, ExcelConversionOptions options)
+    internal static PdfFormattingSnapshot ReadPdfFormatting(string filePath, ExcelConversionOptions options, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(options);
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
         if (!File.Exists(filePath))
@@ -139,8 +142,9 @@ public static partial class ExcelConverter
         if (options.WorksheetIndex < 0)
             throw new ArgumentOutOfRangeException(nameof(options.WorksheetIndex));
 
-        ValidateWorkbookInput(filePath, options);
+        ValidateWorkbookInput(filePath, options, cancellationToken);
         using var workbook = new XLWorkbook(filePath);
+        cancellationToken.ThrowIfCancellationRequested();
         var worksheet = options.WorksheetName is not null
             ? workbook.Worksheets.FirstOrDefault(w =>
                 string.Equals(w.Name, options.WorksheetName, StringComparison.OrdinalIgnoreCase))
@@ -167,6 +171,7 @@ public static partial class ExcelConverter
         var occupied = new HashSet<(int Row, int Column)>();
         foreach (var merged in worksheet.MergedRanges)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var a = merged.RangeAddress.FirstAddress;
             var b = merged.RangeAddress.LastAddress;
             if (b.RowNumber < firstRow || a.RowNumber > lastRow ||
@@ -186,9 +191,12 @@ public static partial class ExcelConverter
             anchors.Add((a.RowNumber, a.ColumnNumber),
                 (b.RowNumber - a.RowNumber + 1, b.ColumnNumber - a.ColumnNumber + 1));
             for (var row = a.RowNumber; row <= b.RowNumber; row++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
                 for (var col = a.ColumnNumber; col <= b.ColumnNumber; col++)
                     if (row != a.RowNumber || col != a.ColumnNumber)
                         occupied.Add((row, col));
+            }
         }
 
         // Validate merge boundaries before checking for empty cells: the selected
@@ -212,6 +220,7 @@ public static partial class ExcelConverter
             var count = 0;
             foreach (var picture in worksheet.Pictures)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 // Free-floating pictures have no meaningful cell anchor.
                 if (picture.Placement.ToString() == "FreeFloating")
                     throw new NotSupportedException(
@@ -272,6 +281,7 @@ public static partial class ExcelConverter
             var containsMergedCells = false;
             for (var col = firstCol; col <= lastCol; col++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (occupied.Contains((rowIndex, col)))
                 {
                     containsMergedCells = true;
@@ -318,6 +328,7 @@ public static partial class ExcelConverter
         var rows = new List<PdfStyledRow>();
         for (var row = firstRow + 1; row <= lastRow; row++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var styled = GetRow(row);
             // Never remove rows occupied by a rowspan: that would cause the
             // TerraPDF table to put subsequent cells in the wrong positions.

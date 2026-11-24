@@ -13,32 +13,51 @@ namespace ExportFiles.Services;
 public static partial class ExcelConverter
 {
     /// <summary>Converts the selected worksheet to CSV.</summary>
-    public static async Task ToCSVAsync(string inputFile, string outputFile, ExcelConversionOptions options)
+    public static Task ToCSVAsync(string inputFile, string outputFile, ExcelConversionOptions options) =>
+        ToCSVAsync(inputFile, outputFile, options, CancellationToken.None);
+
+    public static Task ToCSVAsync(string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken) =>
+        ConvertWithCancellationAsync(outputFile, cancellationToken,
+            path => ToCSVAsyncCore(inputFile, path, options, cancellationToken));
+
+    private static async Task ToCSVAsyncCore(string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(options);
         ValidateCsvDelimiter(options.CsvDelimiter);
-        var sheet = ReadWorksheet(inputFile, options);
+        var sheet = ReadWorksheet(inputFile, options, cancellationToken);
         // Keep only one CSV row in the output buffer instead of duplicating the
         // entire workbook as a single StringBuilder in memory.
         await using var writer = new StreamWriter(outputFile, false, Utf8WithoutBom);
         var buffer = new StringBuilder();
         AppendSelectedCsvRow(buffer, sheet.Headers.Select(
             heading => SafeCsvValue(heading, options.CsvProtectFormulas)), options.CsvDelimiter);
-        await writer.WriteAsync(buffer.ToString()).ConfigureAwait(false);
+        await writer.WriteAsync(buffer.ToString().AsMemory(), cancellationToken).ConfigureAwait(false);
         foreach (var row in sheet.Rows)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             buffer.Clear();
             AppendSelectedCsvRow(buffer, row.Select(
                 value => SafeCsvValue(value, options.CsvProtectFormulas)), options.CsvDelimiter);
-            await writer.WriteAsync(buffer.ToString()).ConfigureAwait(false);
+            await writer.WriteAsync(buffer.ToString().AsMemory(), cancellationToken).ConfigureAwait(false);
         }
+        await writer.FlushAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
     /// <summary>Converts the selected worksheet to JSON with optional native numbers and booleans.</summary>
-    public static async Task ToJsonAsync(string inputFile, string outputFile, ExcelConversionOptions options)
+    public static Task ToJsonAsync(string inputFile, string outputFile, ExcelConversionOptions options) =>
+        ToJsonAsync(inputFile, outputFile, options, CancellationToken.None);
+
+    public static Task ToJsonAsync(string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken) =>
+        ConvertWithCancellationAsync(outputFile, cancellationToken,
+            path => ToJsonAsyncCore(inputFile, path, options, cancellationToken));
+
+    private static async Task ToJsonAsyncCore(string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(options);
-        var sheet = ReadWorksheet(inputFile, options);
+        var sheet = ReadWorksheet(inputFile, options, cancellationToken);
         // Stream JSON records directly to the file: avoid a second list of
         // dictionaries plus a full serialized JSON string.
         await using var stream = new FileStream(
@@ -50,6 +69,7 @@ public static partial class ExcelConverter
         {
             foreach (var row in sheet.TypedRows)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 jsonWriter.WriteStartObject();
                 for (var i = 0; i < sheet.Headers.Count; i++)
                 {
@@ -63,6 +83,7 @@ public static partial class ExcelConverter
         {
             foreach (var row in sheet.Rows)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 jsonWriter.WriteStartObject();
                 for (var i = 0; i < sheet.Headers.Count; i++)
                     jsonWriter.WriteString(sheet.Headers[i], row[i]);
@@ -70,22 +91,31 @@ public static partial class ExcelConverter
             }
         }
         jsonWriter.WriteEndArray();
-        await jsonWriter.FlushAsync().ConfigureAwait(false);
+        await jsonWriter.FlushAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
     /// <summary>Exports the selected worksheet as a paginated PDF with repeated table headers.</summary>
-    public static Task ToPDFAsync(string inputFile, string outputFile, ExcelConversionOptions options)
+    public static Task ToPDFAsync(string inputFile, string outputFile, ExcelConversionOptions options) =>
+        ToPDFAsync(inputFile, outputFile, options, CancellationToken.None);
+
+    public static Task ToPDFAsync(string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken) =>
+        ConvertWithCancellationAsync(outputFile, cancellationToken,
+            path => ToPDFAsyncCore(inputFile, path, options, cancellationToken));
+
+    private static Task ToPDFAsyncCore(string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(options);
         if (options.PdfUseWorksheetPrintSettings)
-            return WriteWorksheetPrintPdfAsync(inputFile, outputFile, options);
+            return WriteWorksheetPrintPdfAsync(inputFile, outputFile, options, cancellationToken);
         if (options.PdfIncludeEmbeddedImages && !options.PdfPreserveCellFormatting)
             throw new ArgumentException(
                 "PdfIncludeEmbeddedImages requires PdfPreserveCellFormatting.", nameof(options));
         if (options.PdfPreserveCellFormatting)
-            return WriteFormattingAwarePdfAsync(inputFile, outputFile, options);
+            return WriteFormattingAwarePdfAsync(inputFile, outputFile, options, cancellationToken);
 
-        var sheet = ReadWorksheet(inputFile, options);
+        var sheet = ReadWorksheet(inputFile, options, cancellationToken);
         return Task.Run(() =>
         {
             TerraPDF.Core.Document.Create(document =>
@@ -118,6 +148,7 @@ public static partial class ExcelConverter
                         });
                         foreach (var values in sheet.Rows)
                         {
+                            cancellationToken.ThrowIfCancellationRequested();
                             table.Row(row =>
                             {
                                 foreach (var value in values)
@@ -127,21 +158,57 @@ public static partial class ExcelConverter
                     });
                 });
             }).PublishPdf(outputFile);
-        });
+            cancellationToken.ThrowIfCancellationRequested();
+        }, cancellationToken);
     }
 
     /// <summary>Converts the selected worksheet to a DOCX table with configurable title and style.</summary>
-    public static Task ToWordAsync(string inputFile, string outputFile, ExcelConversionOptions options)
+    public static Task ToWordAsync(string inputFile, string outputFile, ExcelConversionOptions options) =>
+        ToWordAsync(inputFile, outputFile, options, CancellationToken.None);
+
+    public static Task ToWordAsync(string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken) =>
+        ConvertWithCancellationAsync(outputFile, cancellationToken,
+            path => ToWordAsyncCore(inputFile, path, options, cancellationToken));
+
+    private static Task ToWordAsyncCore(string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(options);
-        var sheet = ReadWorksheet(inputFile, options);
-        return Task.Run(() => WriteStyledWordDocument(sheet, outputFile, options));
+        var sheet = ReadWorksheet(inputFile, options, cancellationToken);
+        return Task.Run(() => WriteStyledWordDocument(sheet, outputFile, options, cancellationToken), cancellationToken);
+    }
+
+    // Keep existing files intact on cancellation. Stage only cancellable path exports.
+    private static async Task ConvertWithCancellationAsync(string outputFile, CancellationToken cancellationToken,
+        Func<string, Task> convert)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!cancellationToken.CanBeCanceled)
+        {
+            await convert(outputFile).ConfigureAwait(false);
+            return;
+        }
+        ArgumentException.ThrowIfNullOrWhiteSpace(outputFile);
+        var fullPath = Path.GetFullPath(outputFile);
+        var temporary = Path.Combine(Path.GetDirectoryName(fullPath)!, $".export-{Guid.NewGuid():N}{Path.GetExtension(fullPath)}");
+        try
+        {
+            await convert(temporary).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            File.Move(temporary, fullPath, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporary))
+                File.Delete(temporary);
+        }
     }
 
     /// <summary>Converts every worksheet to a separate file in the requested format.</summary>
     public static async Task<IReadOnlyList<ExcelConversionResult>> ConvertAllSheetsAsync(
         string inputFile, string outputDirectory, string format, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(inputFile);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
         ArgumentException.ThrowIfNullOrWhiteSpace(format);
@@ -152,6 +219,7 @@ public static partial class ExcelConverter
             throw new FileNotFoundException("Workbook not found.", inputFile);
 
         using var workbook = new XLWorkbook(inputFile);
+        cancellationToken.ThrowIfCancellationRequested();
         var sheets = workbook.Worksheets.Select(w => w.Name).ToList();
         Directory.CreateDirectory(outputDirectory);
         var results = new List<ExcelConversionResult>(sheets.Count);
@@ -170,10 +238,10 @@ public static partial class ExcelConverter
             {
                 switch (normalized)
                 {
-                    case "csv": await ToCSVAsync(inputFile, destination, options).ConfigureAwait(false); break;
-                    case "json": await ToJsonAsync(inputFile, destination, options).ConfigureAwait(false); break;
-                    case "pdf": await ToPDFAsync(inputFile, destination, options).ConfigureAwait(false); break;
-                    case "docx": await ToWordAsync(inputFile, destination, options).ConfigureAwait(false); break;
+                    case "csv": await ToCSVAsync(inputFile, destination, options, cancellationToken).ConfigureAwait(false); break;
+                    case "json": await ToJsonAsync(inputFile, destination, options, cancellationToken).ConfigureAwait(false); break;
+                    case "pdf": await ToPDFAsync(inputFile, destination, options, cancellationToken).ConfigureAwait(false); break;
+                    case "docx": await ToWordAsync(inputFile, destination, options, cancellationToken).ConfigureAwait(false); break;
                 }
                 results.Add(new ExcelConversionResult(inputFile, destination, true, null));
             }
@@ -182,6 +250,7 @@ public static partial class ExcelConverter
                 results.Add(new ExcelConversionResult(inputFile, null, false, $"{sheetName}: {error.Message}"));
             }
         }
+        cancellationToken.ThrowIfCancellationRequested();
         return results;
     }
 
@@ -189,6 +258,7 @@ public static partial class ExcelConverter
     public static async Task<IReadOnlyList<ExcelConversionResult>> ConvertBatchAsync(
         IEnumerable<string> inputFiles, string outputDirectory, string format, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(inputFiles);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
         var normalized = format?.ToLowerInvariant() ?? throw new ArgumentNullException(nameof(format));
@@ -208,10 +278,10 @@ public static partial class ExcelConverter
             {
                 switch (normalized)
                 {
-                    case "csv": await ToCSVAsync(file, path).ConfigureAwait(false); break;
-                    case "json": await ToJsonAsync(file, path).ConfigureAwait(false); break;
-                    case "pdf": await ToPDFAsync(file, path).ConfigureAwait(false); break;
-                    case "docx": await ToWordAsync(file, path).ConfigureAwait(false); break;
+                    case "csv": await ToCSVAsync(file, path, new ExcelConversionOptions { CsvProtectFormulas = false }, cancellationToken).ConfigureAwait(false); break;
+                    case "json": await ToJsonAsync(file, path, new ExcelConversionOptions(), cancellationToken).ConfigureAwait(false); break;
+                    case "pdf": await ToPDFAsync(file, path, new ExcelConversionOptions(), cancellationToken).ConfigureAwait(false); break;
+                    case "docx": await ToWordAsync(file, path, new ExcelConversionOptions(), cancellationToken).ConfigureAwait(false); break;
                 }
                 results.Add(new ExcelConversionResult(file, path, true, null));
             }
@@ -220,16 +290,19 @@ public static partial class ExcelConverter
                 results.Add(new ExcelConversionResult(file, null, false, error.Message));
             }
         }
+        cancellationToken.ThrowIfCancellationRequested();
         return results;
     }
 
-    private static SelectedWorksheet ReadWorksheet(string filePath, ExcelConversionOptions options)
+    private static SelectedWorksheet ReadWorksheet(string filePath, ExcelConversionOptions options, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
         if (!File.Exists(filePath))
             throw new FileNotFoundException("The Excel input file was not found.", filePath);
-        ValidateWorkbookInput(filePath, options);
+        ValidateWorkbookInput(filePath, options, cancellationToken);
         using var workbook = new XLWorkbook(filePath);
+        cancellationToken.ThrowIfCancellationRequested();
         if (workbook.Worksheets.Count == 0)
             throw new InvalidDataException("The workbook contains no worksheets.");
         if (options.WorksheetIndex < 0)
@@ -261,6 +334,7 @@ public static partial class ExcelConverter
 
         for (var row = firstRow + 1; row <= lastRow; row++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var display = new List<string>();
             List<object?>? typed = typedRows is null ? null : new List<object?>();
             for (var col = firstColumn; col <= lastColumn; col++)
@@ -324,8 +398,9 @@ public static partial class ExcelConverter
         return string.IsNullOrWhiteSpace(result) ? "worksheet" : result;
     }
 
-    private static void WriteStyledWordDocument(SelectedWorksheet sheet, string outputPath, ExcelConversionOptions options)
+    private static void WriteStyledWordDocument(SelectedWorksheet sheet, string outputPath, ExcelConversionOptions options, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (options.WordColumnWidthTwips is <= 0)
             throw new ArgumentOutOfRangeException(nameof(options.WordColumnWidthTwips));
 
@@ -355,7 +430,10 @@ public static partial class ExcelConverter
 
         AddStyledWordRow(table, sheet.Headers, isHeader: true, options.WordColumnWidthTwips);
         foreach (var row in sheet.Rows)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
             AddStyledWordRow(table, row, isHeader: false, options.WordColumnWidthTwips);
+        }
         body.Append(table);
 
         var section = new Wp.SectionProperties();
@@ -395,7 +473,9 @@ public static partial class ExcelConverter
 
         if (section.HasChildren)
             body.Append(section);
+        cancellationToken.ThrowIfCancellationRequested();
         mainPart.Document.Save();
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
     private static void AddStyledWordRow(
