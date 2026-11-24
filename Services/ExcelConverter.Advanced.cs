@@ -234,7 +234,7 @@ public static partial class ExcelConverter
         Func<string, Task> convert, bool forceStaging = false)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!cancellationToken.CanBeCanceled && !forceStaging)
+        if (!cancellationToken.CanBeCanceled)
         {
             await convert(outputFile).ConfigureAwait(false);
             return;
