@@ -443,7 +443,7 @@ public static partial class ExcelConverter
     {
         if (protect)
         {
-            var trimmed = input.AsSpan().TrimStart();
+            var trimmed = input.AsSpan();
             if (!trimmed.IsEmpty && trimmed[0] is '=' or '+' or '-' or '@')
                 return "'" + input;
         }
