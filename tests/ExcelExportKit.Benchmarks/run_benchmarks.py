@@ -5,6 +5,7 @@ The generated XLSX is kept on disk; each format/trial gets a fresh process.
 Peak RSS includes that worker's warmup, not fixture generation or other formats.
 """
 import argparse
+import csv
 import json
 import pathlib
 import statistics
@@ -56,6 +57,17 @@ def main() -> None:
             print(f"{fmt} #{trial + 1}: {sample['elapsedMs']:.1f} ms; "
                   f"peak RSS {sample['peakWorkingSetBytes'] / 1048576:.1f} MiB",
                   file=sys.stderr)
+            if fmt in ("csv", "tsv"):
+                with output.open(encoding="utf-8", newline="") as handle:
+                    reader = csv.reader(handle, delimiter="," if fmt == "csv" else "\t", strict=True)
+                    assert next(reader) == ["Student", "Score", "Active", "ExamDate", "Notes", "Group"]
+                    for i in range(args.rows):
+                        row = next(reader)
+                        assert len(row) == 6 and row[0] == f"Student {i + 1}"
+                        assert row[4] == f'Term {i % 7}, practice "{i % 5}"'
+                        assert row[5] == f"Group {i % 20}"
+                    assert next(reader, None) is None
+                sample["verifiedDelimitedRows"] = args.rows
             output.unlink()
         result["results"][fmt] = {
             "samples": observations,
