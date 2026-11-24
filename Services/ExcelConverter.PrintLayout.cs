@@ -244,8 +244,11 @@ public static partial class ExcelConverter
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var titleCells = (long)(titleLastRow - titleRow + 1) * (ce - cs + 1);
-                if (titleCells > remainingCells) throw new InvalidDataException("Print sections exceed the configured selected-cell budget.");
-                remainingCells -= titleCells;
+                // Repeated titles occupy each explicit section, not just the
+                // shared snapshot. Charge them before constructing that snapshot.
+                var repeatedTitleCells = checked(titleCells * rowSegments.Count);
+                if (repeatedTitleCells > remainingCells) throw new InvalidDataException("Print sections exceed the configured selected-cell budget.");
+                remainingCells -= repeatedTitleCells;
                 var titleSnapshot = ReadPdfFormatting(worksheet, new ExcelConversionOptions
                 {
                     WorksheetName = worksheet.Name,
