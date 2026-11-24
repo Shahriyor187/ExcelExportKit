@@ -9,6 +9,7 @@ Not published. Final release depends on Phase 1.8 verification.
 - RowOffset, MaxRows and configurable progress reporting.
 
 ## Improved
+- Expanded archive validation limits reads to the remaining byte budget plus a single overflow-detection byte.
 - Cancellation reaches individual conversions in batch operations.
 - Finite default workbook limits for new stream APIs; shared archive validation and private staging.
 - Staged publication for cancellation-aware and progress-enabled path conversions.
@@ -25,4 +26,12 @@ Not published. Final release depends on Phase 1.8 verification.
 - Progress does not guarantee finalization; cancellation cannot interrupt every synchronous parser or renderer call.
 - Exact Excel print fidelity is not claimed.
 
-See README and docs/PRODUCTION_GUIDE.md. Final test counts, benchmark observations and dependency audit results will be recorded after release validation.
+## Release candidate validation (November 24, 2026)
+
+- 131 regression cases passed on each of .NET 8 and .NET 10 (262 executions).
+- PDF visual regression and package consumer tests passed.
+- No known vulnerabilities reported across 18 resolved dependency entries.
+- Package validation against published v2.0.0 passed.
+- Final stable package validation, refreshed cross-package integration and resource-boundary mutation verification remain release gates.
+
+See README and docs/PRODUCTION_GUIDE.md.
