@@ -344,6 +344,33 @@ public sealed class StreamSecurityTests
         }
     }
 
+    [Theory]
+    [InlineData(50, 51, true)]
+    [InlineData(50, 50, false)]
+    [InlineData(0, 1, true)]
+    public void ExpandedArchiveInspectionReadsOnlyRemainingBudgetPlusOne(int remaining, int length, bool reject)
+    {
+        using var input = new MemoryStream(new byte[length]);
+        var buffer = new byte[65536];
+        const long alreadyExpanded = 100;
+        if (reject)
+            Assert.Throws<InvalidDataException>(() => ExcelConverter.CountExpandedBytes(
+                input, buffer, alreadyExpanded, alreadyExpanded + remaining, CancellationToken.None));
+        else
+            Assert.Equal(alreadyExpanded + remaining, ExcelConverter.CountExpandedBytes(
+                input, buffer, alreadyExpanded, alreadyExpanded + remaining, CancellationToken.None));
+        Assert.Equal(length, input.Position);
+    }
+
+    [Fact]
+    public void OversizedExpandedEntryDoesNotReadEntireBuffer()
+    {
+        using var input = new MemoryStream(new byte[65536]);
+        Assert.Throws<InvalidDataException>(() => ExcelConverter.CountExpandedBytes(
+            input, new byte[65536], 0, 50, CancellationToken.None));
+        Assert.Equal(51, input.Position);
+    }
+
     private static Task Convert(string format, Stream input, Stream output, ExcelConversionOptions options) =>
         format switch
         {

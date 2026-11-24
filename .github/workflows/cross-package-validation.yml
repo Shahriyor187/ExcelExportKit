@@ -1,0 +1,84 @@
+name: Cross-package release validation
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - 'Services/**'
+      - 'tests/CrossPackageConsumer/**'
+      - 'ExcelExportKit.csproj'
+      - '.github/workflows/cross-package-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cross-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: excel
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: Shahriyor187/DataExport
+          ref: cd86cfe7b1389b7c166fb0add88da7101e0426ef
+          path: data
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - name: Pack exact source candidates with API validation
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/candidate-feed"
+          dotnet pack data/DataExport.csproj -c Release -o "$RUNNER_TEMP/candidate-feed"
+          dotnet pack excel/ExcelExportKit.csproj -c Release -o "$RUNNER_TEMP/candidate-feed"
+          test -f "$RUNNER_TEMP/candidate-feed/DataExport.2.1.0.nupkg"
+          test -f "$RUNNER_TEMP/candidate-feed/ExcelExportKit.2.1.0.nupkg"
+          sha256sum "$RUNNER_TEMP/candidate-feed/"*.nupkg
+      - name: Install both local packages into clean consumers
+        run: |
+          set -euo pipefail
+          work="$(mktemp -d)"
+          trap 'rm -rf "$work"' EXIT
+          cat > "$work/NuGet.Config" <<EOF
+          <configuration>
+            <packageSources>
+              <clear />
+              <add key="candidate" value="$RUNNER_TEMP/candidate-feed" />
+              <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+            </packageSources>
+            <packageSourceMapping>
+              <packageSource key="candidate">
+                <package pattern="DataExport" />
+                <package pattern="ExcelExportKit" />
+              </packageSource>
+              <packageSource key="nuget.org">
+                <package pattern="*" />
+              </packageSource>
+            </packageSourceMapping>
+          </configuration>
+          EOF
+          for tfm in net8.0 net10.0; do
+            folder="$work/$tfm"
+            dotnet new console --framework "$tfm" --output "$folder" --no-restore
+            project="$folder/$tfm.csproj"
+            dotnet add "$project" package DataExport --version '[2.1.0]' --no-restore
+            dotnet add "$project" package ExcelExportKit --version '[2.1.0]' --no-restore
+            cp excel/tests/CrossPackageConsumer/Program.cs "$folder/Program.cs"
+            dotnet restore "$project" --configfile "$work/NuGet.Config" --packages "$work/packages" --force --no-cache
+            python3 - "$folder/obj/project.assets.json" <<'PY'
+          import json, sys
+          data = json.load(open(sys.argv[1], encoding="utf-8"))
+          for name in ("DataExport", "ExcelExportKit"):
+              assert name + "/2.1.0" in data["libraries"], name
+          PY
+            echo "Cross-package consumer: $tfm"
+            dotnet run --project "$project" -c Release --no-restore
+          done
