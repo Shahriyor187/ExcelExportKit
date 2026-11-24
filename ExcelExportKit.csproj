@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
 
     <PackageId>ExcelExportKit</PackageId>
-    <Version>2.1.0-rc.1</Version>
+    <Version>2.1.0</Version>
     <!-- Compare against the actual published package, not a source snapshot. -->
     <EnablePackageValidation>true</EnablePackageValidation>
     <PackageValidationBaselineVersion>2.0.0</PackageValidationBaselineVersion>
