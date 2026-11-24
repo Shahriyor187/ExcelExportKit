@@ -3,6 +3,11 @@ namespace ExportFiles.Services;
 /// <summary>Settings for worksheet selection and conversion output.</summary>
 public sealed class ExcelConversionOptions
 {
+    /// <summary>Number of physical data rows to skip after the header, before empty-row filtering.</summary>
+    public long RowOffset { get; init; }
+    /// <summary>Maximum physical data rows to select, or null for unlimited. Headers are excluded.</summary>
+    public long? MaxRows { get; init; }
+
     /// <summary>Select a worksheet by name. Takes precedence over WorksheetIndex.</summary>
     public string? WorksheetName { get; set; }
 
