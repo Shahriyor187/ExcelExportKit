@@ -108,6 +108,81 @@ public sealed class PdfEmbeddedImageTests
         finally { if (File.Exists(input)) File.Delete(input); }
     }
 
+    // Valid, tiny compressed PNGs with real pixel dimensions; no huge
+    // allocations or external image dependencies are needed for this test.
+    [Theory]
+    [InlineData("iVBORw0KGgoAAAANSUhEUgAAEAEAAAACCAIAAAC4FeW7AAAAL0lEQVR42u3BMQEAAADCoPVPbQlPoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgJcBYAgAAUIdNJYAAAAASUVORK5CYII=", 4097, 2)]
+    [InlineData("iVBORw0KGgoAAAANSUhEUgAAAAIAABABCAIAAAAcnnQTAAAAM0lEQVR42u3BgQAAAADDoPlTX+EAVQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACnAXAHAAE9ArVYAAAAAElFTkSuQmCC", 2, 4097)]
+    public async Task ResizingAnOversizedOriginalImageDoesNotBypassLimits(string png, int width, int height)
+    {
+        using var input = new MemoryStream();
+        using (var book = new XLWorkbook())
+        {
+            var sheet = book.AddWorksheet("Data");
+            sheet.Cell("A1").Value = "Name";
+            sheet.Cell("B1").Value = "Photo";
+            sheet.Cell("A2").Value = "Example";
+            using var image = new MemoryStream(Convert.FromBase64String(png));
+            var picture = sheet.AddPicture(image, XLPictureFormat.Png).MoveTo(sheet.Cell("B2"));
+            Assert.Equal(width, picture.OriginalWidth);
+            Assert.Equal(height, picture.OriginalHeight);
+            picture.Width = 64;
+            picture.Height = 32;
+            book.SaveAs(input);
+        }
+        input.Position = 0;
+        using (var loaded = new XLWorkbook(input))
+        {
+            var picture = Assert.Single(loaded.Worksheet(1).Pictures);
+            Assert.Equal(width, picture.OriginalWidth);
+            Assert.Equal(height, picture.OriginalHeight);
+            Assert.Equal(64, picture.Width);
+            Assert.Equal(32, picture.Height);
+        }
+        input.Position = 0;
+        using var output = new MemoryStream();
+        var error = await Assert.ThrowsAsync<InvalidDataException>(() =>
+            ExcelConverter.ToPDFAsync(input, output, new ExcelConversionOptions
+            {
+                RangeAddress = "A1:B2",
+                PdfPreserveCellFormatting = true,
+                PdfIncludeEmbeddedImages = true
+            }));
+        Assert.Contains("original or displayed dimensions", error.Message);
+        Assert.Equal(0, output.Length);
+        Assert.True(input.CanRead);
+        Assert.True(output.CanWrite);
+    }
+
+    [Fact]
+    public async Task OriginalImageAtDimensionLimitIsAccepted()
+    {
+        using var input = new MemoryStream();
+        using (var book = new XLWorkbook())
+        {
+            var sheet = book.AddWorksheet("Data");
+            sheet.Cell("A1").Value = "Name";
+            sheet.Cell("B1").Value = "Photo";
+            sheet.Cell("A2").Value = "Example";
+            using var image = new MemoryStream(Convert.FromBase64String(
+                "iVBORw0KGgoAAAANSUhEUgAAEAAAAAACCAIAAABX146FAAAAL0lEQVR42u3BMQEAAADCoPVPbQhfoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgN8AYAIAAbpK7usAAAAASUVORK5CYII="));
+            var picture = sheet.AddPicture(image, XLPictureFormat.Png).MoveTo(sheet.Cell("B2"));
+            picture.Width = 64;
+            picture.Height = 32;
+            book.SaveAs(input);
+        }
+        input.Position = 0;
+        using var output = new MemoryStream();
+        await ExcelConverter.ToPDFAsync(input, output, new ExcelConversionOptions
+        {
+            RangeAddress = "A1:B2",
+            PdfPreserveCellFormatting = true,
+            PdfIncludeEmbeddedImages = true
+        });
+        Assert.True(output.Length > 100);
+        Assert.Equal("%PDF-", System.Text.Encoding.ASCII.GetString(output.ToArray(), 0, 5));
+    }
+
     [Fact]
     public void RejectsInvalidImageLimits()
     {
