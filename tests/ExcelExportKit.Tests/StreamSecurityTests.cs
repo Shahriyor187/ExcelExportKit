@@ -215,6 +215,135 @@ public sealed class StreamSecurityTests
         finally { dir.Delete(true); }
     }
 
+    [Theory]
+    [InlineData("csv")]
+    [InlineData("json")]
+    [InlineData("pdf")]
+    [InlineData("word")]
+    public async Task CancellationDuringOutputLeavesStreamsOpenAndCleansStaging(string format)
+    {
+        using var cancel = new CancellationTokenSource();
+        using var input = new MemoryStream(Workbook());
+        using var output = new ObservedOutput(() => cancel.Cancel());
+        var dir = Directory.CreateTempSubdirectory();
+        try
+        {
+            var options = new ExcelConversionOptions { TemporaryDirectory = dir.FullName };
+            var task = format switch
+            {
+                "csv" => ExcelConverter.ToCSVAsync(input, output, options, cancel.Token),
+                "json" => ExcelConverter.ToJsonAsync(input, output, options, cancel.Token),
+                "word" => ExcelConverter.ToWordAsync(input, output, options, cancel.Token),
+                _ => ExcelConverter.ToPDFAsync(input, output, options, cancel.Token)
+            };
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
+            Assert.True(task.IsCanceled);
+            Assert.True(output.Writes > 0);
+            Assert.True(output.CanWrite);
+            Assert.True(input.CanRead);
+            Assert.Empty(dir.GetFileSystemInfos());
+        }
+        finally { dir.Delete(true); }
+    }
+
+    [Fact]
+    public async Task TemporaryInputFileUsesOwnerOnlyPermissionsOnUnix()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var dir = Directory.CreateTempSubdirectory();
+        try
+        {
+            var observed = false;
+            using var input = new ForwardInput(Workbook())
+            {
+                AfterRead = () =>
+                {
+                    var file = Assert.Single(dir.GetFiles());
+                    Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(file.FullName));
+                    observed = true;
+                }
+            };
+            using var output = new MemoryStream();
+            await ExcelConverter.ToCSVAsync(input, output, new ExcelConversionOptions
+            {
+                InputBufferingMode = InputBufferingMode.TemporaryFile, TemporaryDirectory = dir.FullName
+            });
+            Assert.True(observed);
+            Assert.Empty(dir.GetFileSystemInfos());
+        }
+        finally { dir.Delete(true); }
+    }
+
+    [Theory]
+    [InlineData("pdf")]
+    [InlineData("word")]
+    public async Task DocumentStagingIsPrivateAndSupportsNonSeekableOutput(string format)
+    {
+        var dir = Directory.CreateTempSubdirectory();
+        try
+        {
+            using var input = new MemoryStream(Workbook());
+            using var output = new ObservedOutput(() =>
+            {
+                var stage = Assert.Single(dir.GetDirectories());
+                if (!OperatingSystem.IsWindows())
+                    Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute,
+                        File.GetUnixFileMode(stage.FullName));
+            });
+            await Convert(format, input, output, new ExcelConversionOptions { TemporaryDirectory = dir.FullName });
+            Assert.True(output.Writes > 0);
+            Assert.True(output.CanWrite);
+            Assert.Empty(dir.GetFileSystemInfos());
+        }
+        finally { dir.Delete(true); }
+    }
+
+    [Fact]
+    public async Task TruncatedWorkbookIsRejectedWithoutOutput()
+    {
+        var bytes = Workbook();
+        using var input = new MemoryStream(bytes[..(bytes.Length / 2)]);
+        using var output = new MemoryStream();
+        await Assert.ThrowsAsync<InvalidDataException>(() => ExcelConverter.ToJsonAsync(input, output));
+        Assert.Equal(0, output.Length);
+        Assert.True(input.CanRead);
+    }
+
+    [Fact]
+    public async Task NonemptyOutputIsRejectedWithoutConsumingInput()
+    {
+        using var input = new ForwardInput(Workbook());
+        using var output = new MemoryStream();
+        output.WriteByte(42);
+        await Assert.ThrowsAsync<ArgumentException>(() => ExcelConverter.ToCSVAsync(input, output));
+        Assert.Equal(0, input.BytesRead);
+        Assert.Equal(new byte[] { 42 }, output.ToArray());
+    }
+
+    private sealed class ObservedOutput(Action observe) : MemoryStream
+    {
+        public int Writes { get; private set; }
+        public override bool CanSeek => false;
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+
+        public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            base.Write(buffer.Span);
+            Writes++;
+            observe();
+            return ValueTask.CompletedTask;
+        }
+
+        public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+        {
+            base.Write(buffer.AsSpan(offset, count));
+            Writes++;
+            observe();
+            return Task.CompletedTask;
+        }
+    }
+
     private static Task Convert(string format, Stream input, Stream output, ExcelConversionOptions options) =>
         format switch
         {
