@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: Shahriyor187/DataExport
-          ref: b2bcfc62bc46c08b8bac611eb711a9fc1a442e96
+          ref: 7c94f907d70722f0045849ae7c84208bece803ab
           path: data
           persist-credentials: false
       - uses: actions/setup-dotnet@v4
