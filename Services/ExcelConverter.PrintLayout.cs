@@ -205,6 +205,7 @@ public static partial class ExcelConverter
         }
 
         var chunks = new List<PdfFormattingSnapshot>();
+        long remainingCells = options.MaxSelectedCells ?? long.MaxValue;
         long remainingSkip = options.RowOffset;
         long remainingTake = options.MaxRows ?? long.MaxValue;
         foreach (var region in regions)
@@ -237,10 +238,15 @@ public static partial class ExcelConverter
                 continue;
             var rowSegments = SplitAtBreaks(rowStart + skip, rowStart + skip + take - 1, horizontal);
             var colSegments = SplitAtBreaks(c1, c2, vertical);
+            if ((long)rowSegments.Count * colSegments.Count > 128 - chunks.Count)
+                throw new NotSupportedException("More than 128 explicit PDF print sections are not supported.");
             foreach (var (cs, ce) in colSegments)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var titleSnapshot = ReadPdfFormatting(input, new ExcelConversionOptions
+                var titleCells = (long)(titleLastRow - titleRow + 1) * (ce - cs + 1);
+                if (titleCells > remainingCells) throw new InvalidDataException("Print sections exceed the configured selected-cell budget.");
+                remainingCells -= titleCells;
+                var titleSnapshot = ReadPdfFormatting(worksheet, new ExcelConversionOptions
                 {
                     WorksheetName = worksheet.Name,
                     RangeAddress = worksheet.Range(titleRow, cs, titleLastRow, ce)
@@ -249,7 +255,8 @@ public static partial class ExcelConverter
                     PdfIncludeEmbeddedImages = options.PdfIncludeEmbeddedImages,
                     PdfMaxEmbeddedImageBytes = options.PdfMaxEmbeddedImageBytes,
                     PdfMaxEmbeddedImages = options.PdfMaxEmbeddedImages,
-                PdfIgnoreImagesOutsideSelectedRange = true
+                MaxSelectedCells = options.MaxSelectedCells,
+                    PdfIgnoreImagesOutsideSelectedRange = true
                 }, cancellationToken);
                 var colTitle = titleSnapshot.Header;
                 var extraTitleRows = titleSnapshot.Rows;
@@ -261,7 +268,10 @@ public static partial class ExcelConverter
                     PdfFormattingSnapshot page;
                     if (rs <= re)
                     {
-                        page = ReadPdfFormatting(input, new ExcelConversionOptions
+                        var cells = (long)(re - rs + 1) * (ce - cs + 1);
+                        if (cells > remainingCells) throw new InvalidDataException("Print sections exceed the configured selected-cell budget.");
+                        remainingCells -= cells;
+                        page = ReadPdfFormatting(worksheet, new ExcelConversionOptions
                         {
                             WorksheetName = worksheet.Name,
                             RangeAddress = worksheet.Range(rs, cs, re, ce)
@@ -270,7 +280,8 @@ public static partial class ExcelConverter
                             PdfIncludeEmbeddedImages = options.PdfIncludeEmbeddedImages,
                             PdfMaxEmbeddedImageBytes = options.PdfMaxEmbeddedImageBytes,
                             PdfMaxEmbeddedImages = options.PdfMaxEmbeddedImages,
-                PdfIgnoreImagesOutsideSelectedRange = true,
+                MaxSelectedCells = options.MaxSelectedCells,
+                    PdfIgnoreImagesOutsideSelectedRange = true,
                             SkipEmptyRows = options.SkipEmptyRows
                         }, cancellationToken);
                         chunks.Add(new PdfFormattingSnapshot(page.ColumnWidths, colTitle,
