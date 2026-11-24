@@ -25,7 +25,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: Shahriyor187/DataExport
-          ref: 7c94f907d70722f0045849ae7c84208bece803ab
+          ref: cd86cfe7b1389b7c166fb0add88da7101e0426ef
           path: data
           persist-credentials: false
       - uses: actions/setup-dotnet@v4
@@ -39,8 +39,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP/candidate-feed"
           dotnet pack data/DataExport.csproj -c Release -o "$RUNNER_TEMP/candidate-feed"
           dotnet pack excel/ExcelExportKit.csproj -c Release -o "$RUNNER_TEMP/candidate-feed"
-          test -f "$RUNNER_TEMP/candidate-feed/DataExport.2.1.0-rc.1.nupkg"
-          test -f "$RUNNER_TEMP/candidate-feed/ExcelExportKit.2.1.0-rc.1.nupkg"
+          test -f "$RUNNER_TEMP/candidate-feed/DataExport.2.1.0.nupkg"
+          test -f "$RUNNER_TEMP/candidate-feed/ExcelExportKit.2.1.0.nupkg"
           sha256sum "$RUNNER_TEMP/candidate-feed/"*.nupkg
       - name: Install both local packages into clean consumers
         run: |
@@ -69,15 +69,15 @@ jobs:
             folder="$work/$tfm"
             dotnet new console --framework "$tfm" --output "$folder" --no-restore
             project="$folder/$tfm.csproj"
-            dotnet add "$project" package DataExport --version '[2.1.0-rc.1]' --no-restore
-            dotnet add "$project" package ExcelExportKit --version '[2.1.0-rc.1]' --no-restore
+            dotnet add "$project" package DataExport --version '[2.1.0]' --no-restore
+            dotnet add "$project" package ExcelExportKit --version '[2.1.0]' --no-restore
             cp excel/tests/CrossPackageConsumer/Program.cs "$folder/Program.cs"
             dotnet restore "$project" --configfile "$work/NuGet.Config" --packages "$work/packages" --force --no-cache
             python3 - "$folder/obj/project.assets.json" <<'PY'
           import json, sys
           data = json.load(open(sys.argv[1], encoding="utf-8"))
           for name in ("DataExport", "ExcelExportKit"):
-              assert name + "/2.1.0-rc.1" in data["libraries"], name
+              assert name + "/2.1.0" in data["libraries"], name
           PY
             echo "Cross-package consumer: $tfm"
             dotnet run --project "$project" -c Release --no-restore
