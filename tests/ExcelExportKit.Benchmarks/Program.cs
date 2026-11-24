@@ -46,7 +46,7 @@ if (args.Length == 3 && args[0] == "generate" &&
 }
 
 if (args.Length == 4 && args[0] == "measure" &&
-    args[1] is "csv" or "json" or "pdf" or "docx")
+    args[1] is "csv" or "tsv" or "json" or "pdf" or "docx")
 {
     var format = args[1];
     var input = Path.GetFullPath(args[2]);
@@ -66,6 +66,7 @@ if (args.Length == 4 && args[0] == "measure" &&
         switch (format)
         {
             case "csv": await ExcelConverter.ToCSVAsync(input, path, options); break;
+            case "tsv": await ExcelConverter.ToTSVAsync(input, path, options); break;
             case "json": await ExcelConverter.ToJsonAsync(input, path, options); break;
             case "pdf": await ExcelConverter.ToPDFAsync(input, path, options); break;
             case "docx": await ExcelConverter.ToWordAsync(input, path, options); break;
@@ -111,5 +112,5 @@ if (args.Length == 4 && args[0] == "measure" &&
 
 Console.Error.WriteLine(
     "Usage: dotnet ExcelExportKit.Benchmarks.dll generate <rows> <fixture.xlsx>\n" +
-    "   or: dotnet ExcelExportKit.Benchmarks.dll measure <csv|json|pdf|docx> <fixture.xlsx> <output>");
+    "   or: dotnet ExcelExportKit.Benchmarks.dll measure <csv|tsv|json|pdf|docx> <fixture.xlsx> <output>");
 return 2;
