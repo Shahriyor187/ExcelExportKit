@@ -3,6 +3,12 @@ using System.Text.Json;
 using ClosedXML.Excel;
 using ExportFiles.Services;
 
+if (args.SequenceEqual(new[] { "--progress" }))
+{
+    await ProgressBenchmark.RunAsync();
+    return 0;
+}
+
 // Worker modes are called by run_benchmarks.py. Each conversion runs in a
 // separate OS process and is warmed up before measurement.
 if (args.Length == 3 && args[0] == "generate" &&
