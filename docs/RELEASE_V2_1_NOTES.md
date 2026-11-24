@@ -1,6 +1,6 @@
-# ExcelExportKit v2.1.0 — draft release notes
+# ExcelExportKit v2.1.0 — release notes
 
-Not published. Final release depends on Phase 1.8 verification.
+Stable release candidate; publication is pending final validation and explicit approval.
 
 ## Added
 - Dedicated TSV conversion, including batch and all-sheet operations.
@@ -32,6 +32,7 @@ Not published. Final release depends on Phase 1.8 verification.
 - PDF visual regression and package consumer tests passed.
 - No known vulnerabilities reported across 18 resolved dependency entries.
 - Package validation against published v2.0.0 passed.
-- Final stable package validation, refreshed cross-package integration and resource-boundary mutation verification remain release gates.
+- Refreshed cross-package integration passed on .NET 8 and .NET 10. The final resource-boundary mutation was detected on both frameworks.
+- Stable-version package validation remains a release gate. No package has been published.
 
 See README and docs/PRODUCTION_GUIDE.md.
