@@ -441,10 +441,13 @@ public static partial class ExcelConverter
 
     private static string SafeCsvValue(string input, bool protect)
     {
-        return protect && input.TrimStart().Length > 0 &&
-               input.TrimStart()[0] is '=' or '+' or '-' or '@'
-            ? "'" + input
-            : input;
+        if (protect)
+        {
+            var trimmed = input.AsSpan().TrimStart();
+            if (!trimmed.IsEmpty && trimmed[0] is '=' or '+' or '-' or '@')
+                return "'" + input;
+        }
+        return input;
     }
 
     private static void ValidateCsvDelimiter(char delimiter)
