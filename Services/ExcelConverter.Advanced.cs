@@ -14,6 +14,7 @@ public static partial class ExcelConverter
 {
     private static void ValidateRowWindow(ExcelConversionOptions options)
     {
+        ExportProgressTracker.Validate(options.ProgressIntervalRows, null);
         if (options.RowOffset < 0) throw new ArgumentOutOfRangeException(nameof(options.RowOffset));
         if (options.MaxRows is < 0) throw new ArgumentOutOfRangeException(nameof(options.MaxRows));
     }
@@ -56,6 +57,7 @@ public static partial class ExcelConverter
 
     private static async Task WriteSelectedDelimitedAsync(SelectedWorksheet sheet, Stream output, ExcelConversionOptions options, char delimiter, CancellationToken cancellationToken)
     {
+        var progress = ExportProgressTracker.Create(options.Progress, options.ProgressIntervalRows, sheet.Rows.Count, cancellationToken);
         // Keep only one CSV row in the output buffer instead of duplicating the
         // entire workbook as a single StringBuilder in memory.
         await using var writer = new StreamWriter(output, Utf8WithoutBom, 8192, leaveOpen: true);
@@ -70,9 +72,11 @@ public static partial class ExcelConverter
             AppendSelectedCsvRow(buffer, row.Select(
                 value => SafeCsvValue(value, options.CsvProtectFormulas)), delimiter);
             await writer.WriteAsync(buffer.ToString().AsMemory(), cancellationToken).ConfigureAwait(false);
+            progress?.RowWritten();
         }
         await writer.FlushAsync(cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
+        progress?.Finish();
     }
 
     /// <summary>Converts the selected worksheet to JSON with optional native numbers and booleans.</summary>
@@ -96,6 +100,7 @@ public static partial class ExcelConverter
 
     private static async Task WriteSelectedJsonAsync(SelectedWorksheet sheet, Stream stream, ExcelConversionOptions options, CancellationToken cancellationToken)
     {
+        var progress = ExportProgressTracker.Create(options.Progress, options.ProgressIntervalRows, sheet.Rows.Count, cancellationToken);
         // Stream JSON records directly to the destination.
         using var jsonWriter = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true });
         jsonWriter.WriteStartArray();
@@ -111,6 +116,7 @@ public static partial class ExcelConverter
                     JsonSerializer.Serialize(jsonWriter, row[i], JsonOptions);
                 }
                 jsonWriter.WriteEndObject();
+                progress?.RowWritten();
             }
         }
         else
@@ -122,11 +128,13 @@ public static partial class ExcelConverter
                 for (var i = 0; i < sheet.Headers.Count; i++)
                     jsonWriter.WriteString(sheet.Headers[i], row[i]);
                 jsonWriter.WriteEndObject();
+                progress?.RowWritten();
             }
         }
         jsonWriter.WriteEndArray();
         await jsonWriter.FlushAsync(cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
+        progress?.Finish();
     }
 
     /// <summary>Exports the selected worksheet as a paginated PDF with repeated table headers.</summary>
@@ -156,6 +164,7 @@ public static partial class ExcelConverter
 
     private static Task RenderSelectedPdfAsync(SelectedWorksheet sheet, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken)
     {
+        var progress = ExportProgressTracker.Create(options.Progress, options.ProgressIntervalRows, sheet.Rows.Count, cancellationToken);
         return Task.Run(() =>
         {
             TerraPDF.Core.Document.Create(document =>
@@ -194,11 +203,13 @@ public static partial class ExcelConverter
                                 foreach (var value in values)
                                     row.Cell().BorderBottom(0.5, "#dddddd").Padding(5).Text(value);
                             });
+                            progress?.RowWritten();
                         }
                     });
                 });
             }).PublishPdf(outputFile);
             cancellationToken.ThrowIfCancellationRequested();
+            progress?.Finish();
         }, cancellationToken);
     }
 
@@ -460,6 +471,7 @@ public static partial class ExcelConverter
         if (options.WordColumnWidthTwips is <= 0)
             throw new ArgumentOutOfRangeException(nameof(options.WordColumnWidthTwips));
 
+        var progress = ExportProgressTracker.Create(options.Progress, options.ProgressIntervalRows, sheet.Rows.Count, cancellationToken);
         using var word = WordprocessingDocument.Create(outputPath, WordprocessingDocumentType.Document);
         var mainPart = word.AddMainDocumentPart();
         mainPart.Document = new Wp.Document(new Wp.Body());
@@ -489,6 +501,7 @@ public static partial class ExcelConverter
         {
             cancellationToken.ThrowIfCancellationRequested();
             AddStyledWordRow(table, row, isHeader: false, options.WordColumnWidthTwips);
+            progress?.RowWritten();
         }
         body.Append(table);
 
@@ -532,6 +545,7 @@ public static partial class ExcelConverter
         cancellationToken.ThrowIfCancellationRequested();
         mainPart.Document.Save();
         cancellationToken.ThrowIfCancellationRequested();
+        progress?.Finish();
     }
 
     private static void AddStyledWordRow(
