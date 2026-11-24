@@ -36,13 +36,13 @@ public static partial class ExcelConverter
 
     public static Task ToCSVAsync(string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken) =>
         ConvertWithCancellationAsync(outputFile, cancellationToken,
-            path => ToCSVAsyncCore(inputFile, path, options, cancellationToken));
+            path => ToCSVAsyncCore(inputFile, path, options, cancellationToken), options?.Progress is not null);
 
     /// <summary>Converts a selected worksheet to TSV, using tab separators and CSV-style quoting.</summary>
     public static Task ToTSVAsync(string inputFile, string outputFile,
         ExcelConversionOptions? options = null, CancellationToken cancellationToken = default) =>
         ConvertWithCancellationAsync(outputFile, cancellationToken,
-            path => ToCSVAsyncCore(inputFile, path, options ?? new ExcelConversionOptions(), cancellationToken, '\t'));
+            path => ToCSVAsyncCore(inputFile, path, options ?? new ExcelConversionOptions(), cancellationToken, '\t'), options?.Progress is not null);
 
     private static async Task ToCSVAsyncCore(string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken, char? delimiterOverride = null)
     {
@@ -85,7 +85,7 @@ public static partial class ExcelConverter
 
     public static Task ToJsonAsync(string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken) =>
         ConvertWithCancellationAsync(outputFile, cancellationToken,
-            path => ToJsonAsyncCore(inputFile, path, options, cancellationToken));
+            path => ToJsonAsyncCore(inputFile, path, options, cancellationToken), options?.Progress is not null);
 
     private static async Task ToJsonAsyncCore(string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken)
     {
@@ -143,7 +143,7 @@ public static partial class ExcelConverter
 
     public static Task ToPDFAsync(string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken) =>
         ConvertWithCancellationAsync(outputFile, cancellationToken,
-            path => ToPDFAsyncCore(inputFile, path, options, cancellationToken));
+            path => ToPDFAsyncCore(inputFile, path, options, cancellationToken), options?.Progress is not null);
 
     private static Task ToPDFAsyncCore(string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken)
     {
@@ -219,7 +219,7 @@ public static partial class ExcelConverter
 
     public static Task ToWordAsync(string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken) =>
         ConvertWithCancellationAsync(outputFile, cancellationToken,
-            path => ToWordAsyncCore(inputFile, path, options, cancellationToken));
+            path => ToWordAsyncCore(inputFile, path, options, cancellationToken), options?.Progress is not null);
 
     private static Task ToWordAsyncCore(string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken)
     {
@@ -229,12 +229,12 @@ public static partial class ExcelConverter
         return Task.Run(() => WriteStyledWordDocument(sheet, outputFile, options, cancellationToken), cancellationToken);
     }
 
-    // Keep existing files intact on cancellation. Stage only cancellable path exports.
+    // Keep existing files intact on cancellation or synchronous progress callback failure.
     internal static async Task ConvertWithCancellationAsync(string outputFile, CancellationToken cancellationToken,
-        Func<string, Task> convert)
+        Func<string, Task> convert, bool forceStaging = false)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!cancellationToken.CanBeCanceled)
+        if (!cancellationToken.CanBeCanceled && !forceStaging)
         {
             await convert(outputFile).ConfigureAwait(false);
             return;
