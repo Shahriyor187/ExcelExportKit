@@ -12,6 +12,23 @@ namespace ExportFiles.Services;
 
 public static partial class ExcelConverter
 {
+    private static void ValidateRowWindow(ExcelConversionOptions options)
+    {
+        if (options.RowOffset < 0) throw new ArgumentOutOfRangeException(nameof(options.RowOffset));
+        if (options.MaxRows is < 0) throw new ArgumentOutOfRangeException(nameof(options.MaxRows));
+    }
+
+    // The inclusive physical row window is computed without overflowing even
+    // when the caller supplies long.MaxValue. An empty window has end < start.
+    private static (int Start, int End) SelectDataRows(int headerRow, int lastRow, ExcelConversionOptions options)
+    {
+        ValidateRowWindow(options);
+        var available = Math.Max(0, lastRow - headerRow);
+        var skip = (int)Math.Min(options.RowOffset, available);
+        var count = (int)Math.Min(options.MaxRows ?? long.MaxValue, available - skip);
+        return (headerRow + 1 + skip, headerRow + skip + count);
+    }
+
     /// <summary>Converts the selected worksheet to CSV.</summary>
     public static Task ToCSVAsync(string inputFile, string outputFile, ExcelConversionOptions options) =>
         ToCSVAsync(inputFile, outputFile, options, CancellationToken.None);
@@ -107,6 +124,7 @@ public static partial class ExcelConverter
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(options);
+        ValidateRowWindow(options);
         if (options.PdfUseWorksheetPrintSettings)
             return WriteWorksheetPrintPdfAsync(inputFile, outputFile, options, cancellationToken);
         if (options.PdfIncludeEmbeddedImages && !options.PdfPreserveCellFormatting)
@@ -301,6 +319,7 @@ public static partial class ExcelConverter
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
         if (!File.Exists(filePath))
             throw new FileNotFoundException("The Excel input file was not found.", filePath);
+        ValidateRowWindow(options);
         ValidateWorkbookInput(filePath, options, cancellationToken);
         using var workbook = new XLWorkbook(filePath);
         workbookLoaded?.Invoke();
@@ -334,7 +353,8 @@ public static partial class ExcelConverter
         List<IReadOnlyList<object?>>? typedRows = options.PreserveJsonTypes
             ? new List<IReadOnlyList<object?>>() : null;
 
-        for (var row = firstRow + 1; row <= lastRow; row++)
+        var (dataStart, dataEnd) = SelectDataRows(firstRow, lastRow, options);
+        for (var row = dataStart; row <= dataEnd; row++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var display = new List<string>();
