@@ -19,6 +19,11 @@ public static partial class ExcelConverter
         string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken)
     {
         var snapshot = ReadPdfFormatting(inputFile, options, cancellationToken);
+        return RenderFormattingAwarePdfAsync(snapshot, outputFile, options, cancellationToken);
+    }
+
+    private static Task RenderFormattingAwarePdfAsync(PdfFormattingSnapshot snapshot, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken)
+    {
         return Task.Run(() =>
         {
             TerraPDF.Core.Document.Create(document =>
@@ -139,12 +144,20 @@ public static partial class ExcelConverter
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
         if (!File.Exists(filePath))
             throw new FileNotFoundException("The Excel input file was not found.", filePath);
+        using var input = File.OpenRead(filePath);
+        return ReadPdfFormatting(input, options, cancellationToken);
+    }
+
+    private static PdfFormattingSnapshot ReadPdfFormatting(Stream input, ExcelConversionOptions options, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(options);
         if (options.WorksheetIndex < 0)
             throw new ArgumentOutOfRangeException(nameof(options.WorksheetIndex));
 
         ValidateRowWindow(options);
-        ValidateWorkbookInput(filePath, options, cancellationToken);
-        using var workbook = new XLWorkbook(filePath);
+        ValidateWorkbookInput(input, options, cancellationToken);
+        using var workbook = new XLWorkbook(new BorrowedStream(input));
         cancellationToken.ThrowIfCancellationRequested();
         var worksheet = options.WorksheetName is not null
             ? workbook.Worksheets.FirstOrDefault(w =>
