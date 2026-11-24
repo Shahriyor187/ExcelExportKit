@@ -6,8 +6,11 @@ namespace ExportFiles.Services;
 /// This is not a guarantee that the destination has been finalized.</summary>
 public readonly struct ExportProgress
 {
+    /// <summary>Number of data rows processed so far, excluding headers.</summary>
     public long RowsWritten { get; init; }
+    /// <summary>Known or estimated output row count; null if unknown.</summary>
     public long? TotalRows { get; init; }
+    /// <summary>Monotonic elapsed time since row processing began.</summary>
     public TimeSpan Elapsed { get; init; }
 }
 
