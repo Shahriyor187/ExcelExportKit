@@ -357,3 +357,8 @@ Cancellation-aware file conversion overloads accept an explicit `CancellationTok
 ## Partial worksheet conversions (v2.1 development)
 
 Set `RowOffset` and `MaxRows` on `ExcelConversionOptions` to select physical data rows after the original header, before SkipEmptyRows filtering. Null MaxRows means unlimited; zero means no data rows. Negative values throw ArgumentOutOfRangeException. A window beyond the available rows retains the original header. Styled PDF conversion rejects merged rectangles cut by the row window and omits pictures in excluded data rows. Print-layout PDF counts data rows across print regions in their existing order, before horizontal page splitting; repeated print titles do not count. Existing input safety limits still apply to the original selected range and workbook. ClosedXML still loads the workbook into memory; a row window is not a streaming workbook reader.
+
+
+## TSV conversion (v2.1 development)
+
+Use `ExcelConverter.ToTSVAsync(inputFile, outputFile, options, cancellationToken)` to convert a worksheet, or pass `"tsv"` to `ConvertAllSheetsAsync` and `ConvertBatchAsync`. TSV forces a tab delimiter without modifying the supplied options, retains worksheet and range selection and row windows, and uses UTF-8 without BOM. Fields containing tabs, quotes or newlines use CSV-style quoting and doubled embedded quotes. Formula protection is enabled by default, including batch conversion. Cancellable path conversions retain the existing staged-output behavior. Use a parser that understands quoted TSV.
