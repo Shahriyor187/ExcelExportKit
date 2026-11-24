@@ -293,9 +293,10 @@ public static partial class ExcelConverter
                 if (picture.ImageStream.Length > options.PdfMaxEmbeddedImageBytes)
                     throw new InvalidDataException(
                         $"Picture '{picture.Name}' exceeds the maximum byte size.");
-                if (picture.Width is < 1 or > 4096 || picture.Height is < 1 or > 4096)
+                if (picture.Width is < 1 or > 4096 || picture.Height is < 1 or > 4096 ||
+                    picture.OriginalWidth is < 1 or > 4096 || picture.OriginalHeight is < 1 or > 4096)
                     throw new InvalidDataException(
-                        $"Picture '{picture.Name}' has unsupported dimensions.");
+                        $"Picture '{picture.Name}' has unsupported original or displayed dimensions.");
 
                 var bytes = picture.ImageStream.ToArray();
                 // Limit image width to fit the cell in the PDF. 96 DPI source
