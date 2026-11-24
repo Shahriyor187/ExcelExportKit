@@ -197,9 +197,7 @@ public static partial class ExcelConverter
                     $"Merged range {merged.RangeAddress} crosses the repeated PDF header. " +
                     "Use a selection whose first row is not vertically merged with the data.");
 
-            if (!touchesHeader && (a.RowNumber < dataStart || b.RowNumber > dataEnd))
-                throw new NotSupportedException(
-                    $"Merged range {merged.RangeAddress} crosses the selected PDF row window. Select its entire rectangle.");
+
 
             anchors.Add((a.RowNumber, a.ColumnNumber),
                 (b.RowNumber - a.RowNumber + 1, b.ColumnNumber - a.ColumnNumber + 1));
