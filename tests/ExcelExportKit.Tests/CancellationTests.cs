@@ -85,6 +85,44 @@ public sealed class CancellationTests
         finally { dir.Delete(true); }
     }
 
+    [Fact]
+    public async Task BatchCancellationAfterFirstItemPreservesCompletedOutput()
+    {
+        var dir = Directory.CreateTempSubdirectory();
+        try
+        {
+            var input = Path.Combine(dir.FullName, "input.xlsx");
+            var output = Path.Combine(dir.FullName, "output");
+            using (var workbook = new XLWorkbook())
+            {
+                var sheet = workbook.AddWorksheet("Data");
+                sheet.Cell("A1").Value = "Id";
+                sheet.Cell("A2").Value = 123;
+                workbook.SaveAs(input);
+            }
+            using var cancel = new CancellationTokenSource();
+            var visited = 0;
+            IEnumerable<string> Inputs()
+            {
+                visited++;
+                yield return input;
+                cancel.Cancel();
+                visited++;
+                yield return input;
+                visited++;
+                yield return input;
+            }
+            var task = ExcelConverter.ConvertBatchAsync(Inputs(), output, "csv", cancel.Token);
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
+            Assert.True(task.IsCanceled);
+            Assert.Equal(2, visited);
+            var file = Assert.Single(Directory.GetFiles(output));
+            Assert.Equal("input.csv", Path.GetFileName(file));
+            Assert.Contains("123", await File.ReadAllTextAsync(file));
+        }
+        finally { dir.Delete(true); }
+    }
+
     private static Task Convert(string input, string output, string format, CancellationToken token)
     {
         var options = new ExcelConversionOptions
