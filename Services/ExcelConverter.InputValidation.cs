@@ -91,7 +91,9 @@ public static partial class ExcelConverter
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var read = stream.Read(buffer, 0, buffer.Length);
+            var remaining = maxUncompressedBytes - expanded;
+            var request = remaining >= buffer.Length ? buffer.Length : (int)remaining + 1;
+            var read = stream.Read(buffer, 0, request);
             cancellationToken.ThrowIfCancellationRequested();
             if (read == 0)
                 return expanded;
