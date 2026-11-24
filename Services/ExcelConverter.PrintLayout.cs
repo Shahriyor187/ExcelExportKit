@@ -18,6 +18,11 @@ public static partial class ExcelConverter
         string inputFile, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken)
     {
         var layout = ReadWorksheetPrintLayout(inputFile, options, cancellationToken);
+        return RenderWorksheetPrintPdfAsync(layout, outputFile, options, cancellationToken);
+    }
+
+    private static Task RenderWorksheetPrintPdfAsync(PdfPrintLayout layout, string outputFile, ExcelConversionOptions options, CancellationToken cancellationToken)
+    {
         return Task.Run(() =>
         {
             TerraPDF.Core.Document.Create(document =>
@@ -115,6 +120,14 @@ public static partial class ExcelConverter
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(options);
+        using var input = File.OpenRead(filePath);
+        return ReadWorksheetPrintLayout(input, options, cancellationToken);
+    }
+
+    private static PdfPrintLayout ReadWorksheetPrintLayout(Stream input, ExcelConversionOptions options, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(options);
         ValidateRowWindow(options);
         if (!options.PdfPreserveCellFormatting)
             throw new ArgumentException(
@@ -124,8 +137,8 @@ public static partial class ExcelConverter
             throw new ArgumentOutOfRangeException(nameof(options.PdfPrintScalePercent),
                 "Print scale must be between 10% and 400%.");
 
-        ValidateWorkbookInput(filePath, options, cancellationToken);
-        using var workbook = new XLWorkbook(filePath);
+        ValidateWorkbookInput(input, options, cancellationToken);
+        using var workbook = new XLWorkbook(new BorrowedStream(input));
         cancellationToken.ThrowIfCancellationRequested();
         var worksheet = options.WorksheetName is not null
             ? workbook.Worksheets.FirstOrDefault(w =>
@@ -154,7 +167,8 @@ public static partial class ExcelConverter
 
         var horizontal = new SortedSet<int>();
         var vertical = new SortedSet<int>();
-        using (var spreadsheet = SpreadsheetDocument.Open(filePath, false))
+        input.Position = 0;
+        using (var spreadsheet = SpreadsheetDocument.Open(new BorrowedStream(input), false))
         {
             var wb = spreadsheet.WorkbookPart
                 ?? throw new InvalidDataException("XLSX workbook part is missing.");
@@ -226,7 +240,7 @@ public static partial class ExcelConverter
             foreach (var (cs, ce) in colSegments)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var titleSnapshot = ReadPdfFormatting(filePath, new ExcelConversionOptions
+                var titleSnapshot = ReadPdfFormatting(input, new ExcelConversionOptions
                 {
                     WorksheetName = worksheet.Name,
                     RangeAddress = worksheet.Range(titleRow, cs, titleLastRow, ce)
@@ -247,7 +261,7 @@ public static partial class ExcelConverter
                     PdfFormattingSnapshot page;
                     if (rs <= re)
                     {
-                        page = ReadPdfFormatting(filePath, new ExcelConversionOptions
+                        page = ReadPdfFormatting(input, new ExcelConversionOptions
                         {
                             WorksheetName = worksheet.Name,
                             RangeAddress = worksheet.Range(rs, cs, re, ce)
