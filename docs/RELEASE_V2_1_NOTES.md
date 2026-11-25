@@ -1,6 +1,6 @@
 # ExcelExportKit v2.1.0 — release notes
 
-Stable release candidate; publication is pending final validation and explicit approval.
+Released v2.1.0. [Install from NuGet](https://www.nuget.org/packages/ExcelExportKit/2.1.0).
 
 ## Added
 - Dedicated TSV conversion, including batch and all-sheet operations.
@@ -26,13 +26,13 @@ Stable release candidate; publication is pending final validation and explicit a
 - Progress does not guarantee finalization; cancellation cannot interrupt every synchronous parser or renderer call.
 - Exact Excel print fidelity is not claimed.
 
-## Release candidate validation (November 24, 2026)
+## Release validation (November 24, 2026)
 
 - 131 regression cases passed on each of .NET 8 and .NET 10 (262 executions).
 - PDF visual regression and package consumer tests passed.
 - No known vulnerabilities reported across 18 resolved dependency entries.
 - Package validation against published v2.0.0 passed.
 - Refreshed cross-package integration passed on .NET 8 and .NET 10. The final resource-boundary mutation was detected on both frameworks.
-- Stable-version package validation remains a release gate. No package has been published.
+- Stable v2.1.0 package creation, installation, regression and compatibility checks passed before merging.
 
 See README and docs/PRODUCTION_GUIDE.md.
