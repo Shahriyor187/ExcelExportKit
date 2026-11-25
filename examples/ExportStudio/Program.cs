@@ -7,7 +7,7 @@ var app = builder.Build();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
-app.MapGet("/api/health", () => Results.Ok(new { status = "ok", packages = new[] { "DataExport 2.0.0", "ExcelExportKit 2.0.0" } }));
+app.MapGet("/api/health", () => Results.Ok(new { status = "ok", packages = new[] { "DataExport 2.1.0", "ExcelExportKit 2.1.0" } }));
 
 app.MapGet("/api/preview", () => Results.Ok(SampleData.Orders));
 
