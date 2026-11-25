@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="DataExport" Version="2.0.0" />
-    <PackageReference Include="ExcelExportKit" Version="2.0.0" />
+    <PackageReference Include="DataExport" Version="2.1.0" />
+    <PackageReference Include="ExcelExportKit" Version="2.1.0" />
   </ItemGroup>
 </Project>
