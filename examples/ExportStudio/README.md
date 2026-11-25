@@ -1,6 +1,6 @@
 # Export Studio — a live .NET export playground
 
-A small, polished ASP.NET Core 10 app using the **published** [DataExport 2.0.0](https://www.nuget.org/packages/DataExport/2.0.0) and [ExcelExportKit 2.0.0](https://www.nuget.org/packages/ExcelExportKit/2.0.0) NuGet packages.
+A small, polished ASP.NET Core 10 app using the **published** [DataExport 2.1.0](https://www.nuget.org/packages/DataExport/2.1.0) and [ExcelExportKit 2.1.0](https://www.nuget.org/packages/ExcelExportKit/2.1.0) NuGet packages.
 
 **No API keys, external databases, uploads or accounts are required.** Every download uses a small synthetic sales dataset (eight fictional orders). The site runs locally; no third-party scripts or fonts are loaded.
 

@@ -30,6 +30,14 @@ jobs:
       - name: Restore and build demo using published packages
         run: |
           dotnet restore examples/ExportStudio/ExportStudio.csproj
+          python3 - <<'PY'
+          import json
+          with open("examples/ExportStudio/obj/project.assets.json", encoding="utf-8") as file:
+              assets = json.load(file)["libraries"]
+          for package in ("DataExport", "ExcelExportKit"):
+              actual = [key for key in assets if key.lower().startswith(package.lower() + "/")]
+              assert actual == [package + "/2.1.0"], (package, actual)
+          PY
           dotnet build examples/ExportStudio/ExportStudio.csproj -c Release --no-restore
       - name: Test all nine downloads over HTTP
         shell: bash
@@ -44,7 +52,9 @@ jobs:
           for attempt in range(60):
               try:
                   with urllib.request.urlopen(root + "/api/health", timeout=2) as response:
-                      assert json.load(response)["status"] == "ok"
+                      health = json.load(response)
+                      assert health["status"] == "ok"
+                      assert health["packages"] == ["DataExport 2.1.0", "ExcelExportKit 2.1.0"]
                   break
               except (OSError, ValueError):
                   time.sleep(1)

@@ -349,7 +349,7 @@ see [the v2 release checklist](docs/RELEASE_V2_CHECKLIST.md).
 
 ## Try Export Studio — interactive demo
 
-**Want to see real output before integrating a package?** Run the [Export Studio demo](examples/ExportStudio/README.md), a responsive local ASP.NET Core application currently pinned to **ExcelExportKit 2.0.0** and **DataExport 2.0.0** from NuGet. The libraries themselves are available as v2.1.0.
+**Want to see real output before integrating a package?** Run the [Export Studio demo](examples/ExportStudio/README.md), a responsive local ASP.NET Core application using both **ExcelExportKit 2.1.0** and **DataExport 2.1.0** from NuGet.
 
 ```powershell
 dotnet run --project examples/ExportStudio/ExportStudio.csproj --urls http://localhost:5075
