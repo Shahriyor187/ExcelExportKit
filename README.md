@@ -4,10 +4,10 @@
 [![Build](https://github.com/Shahriyor187/ExcelExportKit/actions/workflows/ci.yml/badge.svg)](https://github.com/Shahriyor187/ExcelExportKit/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE.txt)
 
-Convert Excel worksheets (`.xlsx`) to CSV, JSON, PDF and Word (DOCX), with worksheet selection, optional PDF formatting and batch conversion. The v2.1 source adds TSV, row windows, stream input/output and progress reporting.
+Convert Excel worksheets (`.xlsx`) to CSV, TSV, JSON, PDF and Word (DOCX), with worksheet selection, optional PDF formatting and batch conversion. Version 2.1.0 includes dedicated TSV conversion, row windows, stream input/output and progress reporting.
 
 
-> **Release status:** v2.1 features described here are in development until the package is published. For the currently released v2.0.0 API, see the [v2.0.0 source](https://github.com/Shahriyor187/ExcelExportKit/tree/v2.0.0). The package targets .NET 8 and .NET 10; prefer a supported .NET 10 runtime in production. 
+> **Release status:** [v2.1.0 is available on NuGet](https://www.nuget.org/packages/ExcelExportKit/2.1.0). All features described below are available in v2.1.0. See the [release notes](docs/RELEASE_V2_1_NOTES.md) and [v2.0.0 source](https://github.com/Shahriyor187/ExcelExportKit/tree/v2.0.0) for earlier-version reference. The package targets .NET 8 and .NET 10; prefer a supported .NET 10 runtime in production.
 
 ## Requirements
 
@@ -24,7 +24,7 @@ dotnet add package ExcelExportKit
 | Format | Method | Notes |
 | --- | --- | --- |
 | CSV | `ToCSVAsync` | Options-based formula protection |
-| TSV (v2.1) | `ToTSVAsync` | Quoted tab-separated fields |
+| TSV | `ToTSVAsync` | Quoted tab-separated fields |
 | JSON | `ToJsonAsync` | Optional native types |
 | PDF | `ToPDFAsync` | Standard, styled or print-layout rendering |
 | Word | `ToWordAsync` | Tabular DOCX |
@@ -75,15 +75,15 @@ await ExcelConverter.ToJsonAsync("results.xlsx", "results.json",
 
 This is an in-memory ClosedXML reader. It does not yet provide forward-only extraction for extremely large uploaded workbooks.
 
-## Partial worksheet conversions (v2.1 development)
+## Partial worksheet conversions (v2.1)
 
 Set `RowOffset` and `MaxRows` on `ExcelConversionOptions` to select physical data rows after the original header, before SkipEmptyRows filtering. Null MaxRows means unlimited; zero means no data rows. Negative values throw ArgumentOutOfRangeException. A window beyond the available rows retains the original header. Styled PDF conversion rejects merged rectangles cut by the row window and omits pictures in excluded data rows. Print-layout PDF counts data rows across print regions in their existing order, before horizontal page splitting; repeated print titles do not count. Existing input safety limits still apply to the original selected range and workbook. ClosedXML still loads the workbook into memory; a row window is not a streaming workbook reader.
 
-## TSV conversion (v2.1 development)
+## TSV conversion (v2.1)
 
 Use `ExcelConverter.ToTSVAsync(inputFile, outputFile, options, cancellationToken)` to convert a worksheet, or pass `"tsv"` to `ConvertAllSheetsAsync` and `ConvertBatchAsync`. TSV forces a tab delimiter without modifying the supplied options, retains worksheet and range selection and row windows, and uses UTF-8 without BOM. Fields containing tabs, quotes or newlines use CSV-style quoting and doubled embedded quotes. Formula protection is enabled by default, including batch conversion. Cancellable path conversions retain the existing staged-output behavior. Use a parser that understands quoted TSV.
 
-## Stream input and output (v2.1 development)
+## Stream input and output (v2.1)
 
 CSV, TSV, JSON, PDF and Word support stream-to-stream, path-to-stream and stream-to-path overloads. The caller owns input and output streams. Seekable input must start at position zero; seekable output must be empty and positioned at zero. Non-seekable output is supported. Input and output must not refer to the same underlying resource (distinct wrappers cannot always be detected). Do not change streams or options concurrently during conversion.
 
@@ -93,7 +93,7 @@ TemporaryDirectory must be an existing, application-controlled directory; never 
 
 ClosedXML still loads the workbook into memory. Limits are not a sandbox or a guaranteed process memory ceiling. For hostile uploads use isolated workers, OS memory/CPU/disk quotas, request limits and timeouts. Cancellation cannot interrupt every synchronous parser or renderer call. Caller-owned output may contain partial bytes on failure or cancellation; discard it. Spreadsheet formula protection is enabled by default for CSV/TSV stream conversions but is not a universal guarantee across spreadsheet applications.
 
-## Export progress (v2.1 development)
+## Export progress (v2.1)
 
 Set `Progress` to an `IProgress<ExportProgress>` and `ProgressIntervalRows` to a positive number (default 1000). Reports contain processed data rows, an optional total, and elapsed time since the row-processing tracker was created. Headers and skipped rows are excluded. Reports are emitted at row intervals and once for a remaining count (including zero); a final interval-aligned count is not duplicated. Reports describe processing, not successful finalization or publication. Await the conversion task to determine success. Cancellation is checked before and after synchronous Report calls. Exceptions thrown directly by Report propagate; asynchronously dispatched Progress<T> handlers execute independently and their exceptions cannot be caught by the export. Keep callbacks fast and do not mutate the input, output or options during export. Caller-owned streams can contain partial output on failure and must be discarded.
 
@@ -224,7 +224,7 @@ foreach (var result in batchResults)
 ```
 
 These methods return a result per workbook or worksheet. A failed conversion
-doesn't stop the remaining entries. Supported formats are `csv`, `json`, `pdf` and `docx`; v2.1 adds `tsv`. Output directory creation is automatic.
+doesn't stop the remaining entries. Supported formats are `csv`, `tsv`, `json`, `pdf` and `docx`. Output directory creation is automatic.
 
 ### ASP.NET Core example
 
@@ -252,7 +252,7 @@ The library is independent of ASP.NET Core. Validate any user-supplied input
 paths and file sizes before opening Excel workbooks. PDF export currently uses
 the built-in Latin font set; additional scripts may require custom fonts.
 
-## Memory and cancellation characteristics (v2.1 development)
+## Memory and cancellation characteristics (v2.1)
 
 Cancellation-aware file conversion overloads accept an explicit `CancellationToken` after options. Cancellation is cooperative during archive checks, worksheet extraction and output row construction. ClosedXML workbook loading and third-party PDF/DOCX serialization may not be interruptible. Cancellable file exports stage output beside the destination, then move it into place after conversion and a final cancellation check. Completed batch items remain on disk; cancellation propagates rather than returning a success result. ClosedXML loads workbook data into memory; `MaxWorkbookFileBytes` limits compressed input bytes and `MaxSelectedCells` limits the selected conversion rectangle, not total process memory. CSV and JSON avoid accumulating an additional complete output string but still load the workbook and selected rows in memory.
 
@@ -329,9 +329,9 @@ python3 tests/ExcelExportKit.VisualChecks/compare.py \
 
 This produces `excelComparison` entries in the JSON report and difference masks in `excel-diffs/`. It intentionally **does not fail CI based on pixel differences**. Microsoft Excel print settings, fonts, graphics placement, and pagination can differ; reference PDFs must be produced independently and reviewed by a human. The repository does not currently contain validated Excel-generated reference PDFs. Do not label renderer-to-renderer comparisons as Excel fidelity.
 
-## Validate a representative workbook locally before v2 release
+## Validate a representative workbook locally
 
-The release candidate includes a **local-only** probe for checking that a
+The repository includes a **local-only** probe for checking that a
 realistic workbook can be converted to CSV, JSON, PDF and DOCX with opt-in
 resource limits. It deletes temporary conversions after checking them and
 reports timings, output sizes, success/failure categories and a cumulative
@@ -349,7 +349,7 @@ see [the v2 release checklist](docs/RELEASE_V2_CHECKLIST.md).
 
 ## Try Export Studio — interactive demo
 
-**Want to see real output before integrating a package?** Run the [Export Studio demo](examples/ExportStudio/README.md), a responsive local ASP.NET Core application using both **ExcelExportKit 2.0.0** and **DataExport 2.0.0** from NuGet.
+**Want to see real output before integrating a package?** Run the [Export Studio demo](examples/ExportStudio/README.md), a responsive local ASP.NET Core application currently pinned to **ExcelExportKit 2.0.0** and **DataExport 2.0.0** from NuGet. The libraries themselves are available as v2.1.0.
 
 ```powershell
 dotnet run --project examples/ExportStudio/ExportStudio.csproj --urls http://localhost:5075
@@ -390,4 +390,4 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE.txt).
 
 ## Additional v2.1 performance checks
 
-The benchmark worker now includes TSV, and the Python runner parses every CSV and TSV record to check ordering and representative escaped fields. Run `dotnet run -c Release --project tests/ExcelExportKit.Benchmarks -- --progress` to compare CSV progress enabled and disabled. See [draft release notes](https://github.com/Shahriyor187/ExcelExportKit/blob/master/docs/RELEASE_V2_1_NOTES.md).
+The benchmark worker now includes TSV, and the Python runner parses every CSV and TSV record to check ordering and representative escaped fields. Run `dotnet run -c Release --project tests/ExcelExportKit.Benchmarks -- --progress` to compare CSV progress enabled and disabled. See [v2.1.0 release notes](https://github.com/Shahriyor187/ExcelExportKit/blob/master/docs/RELEASE_V2_1_NOTES.md).
